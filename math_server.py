@@ -1,7 +1,7 @@
 from fastmcp import FastMCP
 
 # Initialize FastMCP with a name
-mcp = FastMCP("calculator")
+mcp = FastMCP("math")
 
 @mcp.tool()
 def add(a: int, b: int) -> int:
@@ -16,10 +16,10 @@ def multiply(a: int, b: int) -> int:
 # Start the MCP server
 if __name__ == "__main__":
     # Initialize and run the server
-    
+
     # use this for local testing
     # it requires the client to know the local file path where the server is running
-    # mcp.run(transport='stdio')  
+    # mcp.run(transport='stdio')
 
     # use this for running the server over HTTP
     # it requires the client to connect to the server using the HTTP URL

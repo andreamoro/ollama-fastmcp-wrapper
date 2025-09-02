@@ -1,0 +1,9 @@
+# FastMCP Server configurations
+# Multiple MCP servers can be specified, each as a table
+[[servers]]
+name = "math"
+command = "uv"
+args = ["run", "--with", "fastmcp", "/home/andrea/GitHub/Python/ollama-fastmcp-wrapper/math_server.py"]
+host = "http://localhost:5000/mcp"
+port = 5000
+enabled = true

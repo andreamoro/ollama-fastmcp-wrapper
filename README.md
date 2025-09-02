@@ -9,6 +9,8 @@ A proxy service that bridges [Ollama](https://ollama.ai) with [FastMCP](https://
 - Connect/disconnect to multiple **MCP servers** at runtime (using FastMCP).
 - Expose FastMCP tools as callable functions to Ollama models.
 - Use Ollama locally with tool-augmented reasoning.
+- Historical conversation with the LLM model persistable on disk.
+- Automatically summarise historical conversation with the model.
 - Run as:
   - **API Server** (via FastAPI + Uvicorn)
   - **Interactive CLI**
@@ -85,8 +87,10 @@ Endpoints:
 - `GET /servers` → List available FastMCP servers
 - `POST /connect/{server_name}` → Connect a FastMCP server
 - `POST /disconnect/{server_name}` → Disconnect a server
-- `GET /list_tools?server_name=math` → List tools for a server
+- `GET /list_tools?server_name={server_name}` → List tools for a server
 - `POST /chat` → Send a chat request
+- `POST /save_history/{file_name}` → Persists the conversation history on disk
+- `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file with the ongoing conversation
 
 Example:
 
@@ -160,11 +164,16 @@ flowchart TD
 
 ## :bulb: Roadmap / TODO
 
-- Config file support
-- CLI startup argument parser
+- Implement FastMCP support in the CLI mode
+- Add argument parser for configuring the API host.
 - Logging support
-- Automatic conversation history save/load
-- FastMCP support in the CLI mode
+
+---
+
+## Release History
+
+- 2025-09-02 - v. 0.2.0 - Added external MCP config file support and argument parser
+- 2025-08-19 - v. 0.1.0 - Initial Release
 
 ---
 
