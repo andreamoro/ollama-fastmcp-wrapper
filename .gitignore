@@ -9,4 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# API Tokens (contains sensitive keys)
+mcp_servers/mcp_tokens.toml
+
+# Conversation history files
 *.json
+messages_history/

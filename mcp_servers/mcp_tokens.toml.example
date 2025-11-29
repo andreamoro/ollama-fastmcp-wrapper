@@ -1,0 +1,11 @@
+# MCP Server API Tokens
+# Copy this file to mcp_tokens.toml and fill in your actual tokens
+# mcp_tokens.toml is gitignored and will not be committed
+
+[ipinfo]
+# Get your free token at: https://ipinfo.io/signup
+token = "your_token_here"
+
+# Add tokens for other services as needed
+# [future_service]
+# api_key = "your_api_key_here"

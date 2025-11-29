@@ -55,8 +55,10 @@ Limited to this wrapper, MCP use is limited to the Tools part.
   ollama serve
   ```
 - An MCP server to use the Tools capability
-  - Without an MCP server, you can use this wrapper as a conversation interface 
-  - A simple math MCP server is available in the repository.
+  - Without an MCP server, you can use this wrapper as a conversation interface
+  - Two example MCP servers are included in the `mcp_servers/` directory:
+    - **math_server.py** - Basic arithmetic operations (add, subtract, multiply, divide)
+    - **ipinfo_server.py** - IP geolocation lookup with 20 preset organizations
 
 ## &#9973; Usage
 
@@ -84,12 +86,12 @@ python ollama_wrapper.py
 
 Endpoints:
 
-- `GET /servers` → List available FastMCP servers
+- `GET /servers` → List connected servers with their tools and available API endpoints
 - `POST /connect/{server_name}` → Connect a FastMCP server
 - `POST /disconnect/{server_name}` → Disconnect a server
-- `GET /list_tools?server_name={server_name}` → List tools for a server
 - `POST /chat` → Send a chat request
 - `GET /history` → Get current conversation history
+- `POST /load_history/{file_name}` → Load conversation history from disk
 - `POST /save_history/{file_name}` → Persists the conversation history on disk
 - `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file with the ongoing conversation
 
@@ -164,26 +166,45 @@ Exit with `/exit` or `/quit`.
 
 ## ⚙️ Configuration
 
-The wrapper and FastMCP servers are configured in `server_config.toml`. Example:
+### Configuration Files
 
-```toml
-# Wrapper settings (optional - defaults will be used if not specified)
-[wrapper]
-transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
-host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
-port = 8000                     # Server port (default: 8000)
-history_file = ""               # Path to conversation history file (default: none)
-overwrite_history = false       # Overwrite history file on exit (default: false)
+Version 0.4.0 introduces a separated configuration structure:
 
-# FastMCP Server configurations
-[[servers]]
-name = "math"
-command = "uv"
-args = ["run", "--with", "fastmcp", "math_server.py"]
-host = "http://localhost:5000/mcp"
-port = 5000
-enabled = true
-```
+1. **Wrapper Configuration** (`wrapper_config.toml` - root directory):
+   ```toml
+   [wrapper]
+   transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
+   host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
+   port = 8000                     # Server port (default: 8000)
+   history_file = ""               # Path to conversation history file (default: none)
+   overwrite_history = false       # Overwrite history file on exit (default: false)
+   ```
+
+2. **MCP Servers Configuration** (`mcp_servers/mcp_servers_config.toml`):
+   ```toml
+   [[servers]]
+   name = "math"
+   command = "uv"
+   args = ["run", "--with", "fastmcp", "mcp_servers/math_server.py"]
+   host = "http://localhost:5000/mcp"
+   port = 5000
+   enabled = true
+
+   [[servers]]
+   name = "ipinfo"
+   command = "uv"
+   args = ["run", "--with", "fastmcp", "mcp_servers/ipinfo_server.py"]
+   host = "http://localhost:5001/mcp"
+   port = 5001
+   enabled = true
+   ```
+
+3. **API Tokens** (`mcp_servers/mcp_tokens.toml` - gitignored):
+   ```toml
+   # Copy from mcp_tokens.toml.example and add your tokens
+   [ipinfo]
+   token = "your_ipinfo_token_here"
+   ```
 
 ### Configuration Priority
 
@@ -204,7 +225,8 @@ Command-line arguments take precedence over config file settings:
 - `model` - Ollama model to use (e.g., `llama3.2:3b`, `gemma3:1b`)
 
 **Optional Arguments:**
-- `-c, --config <file>` - Path to configuration file (default: `server_config.toml`)
+- `-c, --wrapper-config <file>` - Path to wrapper configuration file (default: `wrapper_config.toml`)
+- `--mcp-config <filename>` - MCP servers config filename in mcp_servers/ directory (default: `mcp_servers_config.toml`)
 - `--history-file <file>` - Path to conversation history file to load/save
 - `-o, --overwrite-history` - Allow overwriting existing history file
 - `-t, --transport <method>` - Transport method: `HTTP` or `STDIO` (default: from config or `HTTP`)
@@ -214,8 +236,8 @@ Command-line arguments take precedence over config file settings:
 #### Examples
 
 ```bash
-# Use custom config file
-python ollama_wrapper.py api -c my_config.toml
+# Use custom wrapper config file
+python ollama_wrapper.py api -c my_wrapper_config.toml
 
 # Override config file settings
 python ollama_wrapper.py api --host 127.0.0.1 --port 9000
@@ -228,6 +250,9 @@ python ollama_wrapper.py cli --history-file my_conversation.json
 
 # Start with specific model and auto-save history
 python ollama_wrapper.py api llama3.2:3b --history-file conversation.json -o
+
+# Use alternate MCP servers config
+python ollama_wrapper.py api --mcp-config alternate_servers.toml
 ```
 
 ---

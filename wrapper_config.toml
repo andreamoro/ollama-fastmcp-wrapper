@@ -1,6 +1,5 @@
 # Ollama-FastMCP Wrapper Configuration
 
-# Wrapper settings (optional - defaults will be used if not specified)
 [wrapper]
 transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
 host = "0.0.0.0"               # Server host address (default: 0.0.0.0)

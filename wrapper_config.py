@@ -67,7 +67,7 @@ class WrapperConfig:
             tomllib.TOMLDecodeError: If config file is invalid TOML
 
         Example:
-            config = WrapperConfig.from_toml("server_config.toml")
+            config = WrapperConfig.from_toml("wrapper_config.toml")
             print(f"Wrapper will run on {config.host}:{config.port}")
         """
         with open(config_path, "rb") as f:

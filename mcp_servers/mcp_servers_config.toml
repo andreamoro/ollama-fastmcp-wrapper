@@ -1,0 +1,17 @@
+# MCP Servers Configuration
+
+[[servers]]
+name = "math"
+command = "uv"
+args = ["run", "--with", "fastmcp", "mcp_servers/math_server.py"]
+host = "http://localhost:5000/mcp"
+port = 5000
+enabled = true
+
+[[servers]]
+name = "ipinfo"
+command = "uv"
+args = ["run", "--with", "fastmcp", "mcp_servers/ipinfo_server.py"]
+host = "http://localhost:5001/mcp"
+port = 5001
+enabled = true

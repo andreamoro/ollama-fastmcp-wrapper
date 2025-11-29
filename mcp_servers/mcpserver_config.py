@@ -16,7 +16,7 @@ Configuration Structure in TOML:
 
 from dataclasses import dataclass, field
 from typing import Dict, List
-
+import os
 import tomllib
 
 @dataclass
@@ -59,7 +59,7 @@ class Config:
     access methods.
 
     Usage:
-        config = Config.from_toml("server_config.toml")
+        config = Config.from_toml("mcp_servers_config.toml")
 
         # Check if server exists
         if "math" in config:
@@ -89,6 +89,7 @@ class Config:
             FileNotFoundError: If config file doesn't exist
             tomllib.TOMLDecodeError: If config file is invalid TOML
         """
+        config_path = os.path.join(os.path.dirname(__file__), config_path)
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
 
@@ -126,7 +127,7 @@ class Config:
             KeyError: If server with given name doesn't exist
 
         Example:
-            config = Config.from_toml("config.toml")
+            config = Config.from_toml("mcp_servers_config.toml")
             math_config = config["math"]
         """
         for server in self._servers:

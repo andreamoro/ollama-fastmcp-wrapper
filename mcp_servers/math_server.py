@@ -4,7 +4,7 @@ Math MCP Server
 This is a FastMCP server that provides basic mathematical operations as tools.
 It demonstrates how to create an MCP server that can be used by the Ollama-FastMCP wrapper.
 
-The server reads its configuration from server_config.toml to ensure alignment with
+The server reads its configuration from mcp_servers_config.toml to ensure alignment with
 the wrapper's expectations.
 """
 
@@ -28,7 +28,7 @@ def multiply(a: int, b: int) -> int:
 
 if __name__ == "__main__":
     """
-    Start the MCP server using configuration from server_config.toml
+    Start the MCP server using configuration from mcp_servers_config.toml
 
     The server can run in two transport modes:
     1. STDIO: For local testing where the wrapper spawns the server as a subprocess
@@ -36,12 +36,12 @@ if __name__ == "__main__":
     2. HTTP: For network communication where the server runs independently and the
              wrapper connects to it via HTTP
 
-    Configuration is read from server_config.toml [[servers]] section where name="math"
+    Configuration is read from mcp_servers_config.toml [[servers]] section where name="math"
     """
 
     # Load configuration from TOML file
-    # Default to 'server_config.toml' in the current directory
-    config_file = sys.argv[1] if len(sys.argv) > 1 else "server_config.toml"
+    # Default to 'mcp_servers_config.toml' in the current directory
+    config_file = sys.argv[1] if len(sys.argv) > 1 else "mcp_servers_config.toml"
 
     try:
         config = mcpserver_config.Config.from_toml(config_file)

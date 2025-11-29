@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-29
+
+### Breaking Changes
+- **Complete configuration separation**: MCP server configuration moved to `mcp_servers/` directory
+- **Configuration file reorganization**:
+  - Wrapper config: `wrapper_config.toml` (root directory)
+  - MCP servers config: `mcp_servers/mcp_servers_config.toml` (mcp_servers/ directory)
+  - MCP tokens: `mcp_servers/mcp_tokens.toml` (mcp_servers/ directory, gitignored)
+- **Command-line argument changes**:
+  - `-c/--config` renamed to `-c/--wrapper-config`
+  - New `--mcp-config` argument (expects filename only, resolved to mcp_servers/ directory)
+- **Removed python-dotenv dependency**: All configuration now uses TOML format
+
+### Added
+- **IPInfo MCP Server**: New server for IP geolocation lookup via ipinfo.io API
+  - 20 preset organizations for demos (Google, Facebook, GitHub, etc.)
+  - Three tools: `lookup_ip()`, `lookup_organization()`, `list_organizations()`
+  - Token management via `mcp_servers/mcp_tokens.toml`
+- **MCP servers directory structure**: All MCP server code now in `mcp_servers/` directory
+- **Enhanced `/servers` endpoint**: Now dynamically lists all connected servers with their available tools
+- **Token management**: TOML-based secure token storage with example file
+
+### Changed
+- **Configuration module architecture**: `mcpserver_config.py` now resolves paths relative to `mcp_servers/` directory
+- **`/servers` endpoint response**: Returns runtime state (connected servers with their tools) instead of config-based listing
+- **Tool listing**: Completely dynamic from FastMCP `client.list_tools()` - no manual maintenance needed
+- **Error handling**: More descriptive error messages for connection failures
+
+### Fixed
+- **Global config initialization**: Fixed `mcp_config` NoneType error on server connection
+- **Config file location**: Proper separation between wrapper and MCP server configurations
+- **`/servers` endpoint**: Removed redundant status when servers are connected
+
+### Removed
+- **python-dotenv dependency**: Replaced with native Python `tomllib` for token management
+
 ## [0.3.0] - 2025-11-29
 
 ### Added
@@ -73,7 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /save_history/{file_name}` - Save conversation history
 - `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
 
-[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/releases/tag/v0.1.0

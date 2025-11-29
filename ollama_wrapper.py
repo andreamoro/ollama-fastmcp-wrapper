@@ -2,7 +2,7 @@
 """
 A proxy service that exposes FastMCP tools to Ollama via API endpoint
 Usage:
-- uv run ollama_wrapper.py api gemma3:1b
+- uv run ollama_wrapper.py api llama3.2:3b
 or
 - python ollama_wrapper.py api llama3.2:3b --host 0.0.0.0 --port 8080
 
@@ -14,7 +14,7 @@ curl http://localhost:8000/chat
 
 import argparse
 from pathlib import Path
-import mcpserver_config
+from mcp_servers import mcpserver_config
 import wrapper_config
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -39,7 +39,7 @@ class TransportMethod(Enum):
 
 class ChatRequest(BaseModel):
     message: str
-    model: str = "gemma3:1b"
+    model: str = "llama3.2:3b"
     mcp_server: Optional[str] = ""
 
 class ChatResponse(BaseModel):
@@ -50,7 +50,7 @@ class MessageHistory:
     def __init__(self,
                 system_prompt="You are a helpful assistant.",
                 max_messages=20,
-                summarise_model="gemma3:1b"
+                summarise_model="llama3.2:3b"
             ):
         self.system_prompt = system_prompt
         self.max_messages = max_messages
@@ -519,11 +519,28 @@ class OllamaWrapper:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def _list_servers(self) -> dict:
-        """List available FastMCP servers"""
-        result = {}
-        for name, _ in mcp_config.servers.items():
-            result[name] = {"enabled": True if fastmcp_clients.get(name, False) else False}
-        return {"servers": result}
+        """List loaded FastMCP servers with their available tools"""
+        if not fastmcp_clients:
+            return {"servers": {}, "status": "no servers connected"}
+
+        # List connected servers with their tools
+        servers_info = {}
+        for name in fastmcp_clients.keys():
+            tools = fastmcp_tools.get(name, [])
+            tool_list = []
+            for tool in tools:
+                tool_info = {
+                    "name": tool["function"]["name"],
+                    "description": tool["function"]["description"]
+                }
+                tool_list.append(tool_info)
+
+            servers_info[name] = {
+                "status": "connected",
+                "tools": tool_list
+            }
+
+        return {"servers": servers_info}
 
     async def _get_history(self) -> dict:
         """
@@ -732,7 +749,7 @@ if __name__ == "__main__":
     Example:
         uv python run ollama_wrapper.py [mode] [model]
         or
-        uv python run ollama_wrapper.py cli gemma3:1b
+        uv python run ollama_wrapper.py cli llama3.2:3b
         or
         uv python run ollama_wrapper.py api --host 127.0.0.1 --port 8080
     """
@@ -758,11 +775,18 @@ if __name__ == "__main__":
                         help='An Ollama model previously downloaded.')
 
     # Optional arguments
-    parser.add_argument('-c', '--config',
+    parser.add_argument('-c', '--wrapper-config',
                         type=str,
                         nargs='?',
-                        default='server_config.toml',
-                        help='Specify the configuration file path.'
+                        default='wrapper_config.toml',
+                        help='Specify the wrapper configuration file path.'
+                    )
+
+    parser.add_argument('--mcp-config',
+                        type=str,
+                        nargs='?',
+                        default='mcp_servers_config.toml',
+                        help='Specify the MCP servers configuration file name.'
                     )
 
     parser.add_argument('--history-file',
@@ -798,9 +822,9 @@ if __name__ == "__main__":
     # Parse the arguments
     args = parser.parse_args()
 
-    # Load configurations from TOML file
-    mcp_config = mcpserver_config.Config.from_toml(args.config)
-    wrap_config = wrapper_config.WrapperConfig.from_toml(args.config)
+    # Load configurations from separate TOML files
+    mcp_config = mcpserver_config.Config.from_toml(args.mcp_config)
+    wrap_config = wrapper_config.WrapperConfig.from_toml(args.wrapper_config)
 
     # Command-line arguments take precedence over config file
     # Use config values as defaults if command-line args are not explicitly provided
