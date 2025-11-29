@@ -5,13 +5,14 @@ This module handles the configuration for FastMCP servers that can be used with
 the Ollama-FastMCP wrapper. It reads server configurations from a TOML file.
 
 Configuration Structure in TOML:
-    [[servers]]              # Array of server configurations
-    name = "math"            # Unique identifier for the server
-    command = "uv"           # Command to spawn the server (STDIO mode only)
-    args = ["run", ...]      # Arguments for the command (STDIO mode only)
-    host = "http://..."      # URL to connect to the server (HTTP mode only)
-    port = 5000              # Port number the server runs on
-    enabled = true           # Whether this server should be available
+    [[servers]]                      # Array of server configurations
+    name = "math"                    # Unique identifier for the server
+    command = "uv"                   # Command to spawn the server (STDIO mode only)
+    args = ["run", ...]              # Arguments for the command (STDIO mode only)
+    host = "http://..."              # URL to connect to the server (HTTP mode only)
+    port = 5000                      # Port number the server runs on
+    enabled = true                   # Whether this server should be available
+    token_file = "mcp_tokens.toml"   # Optional: token file name (default: "mcp_tokens.toml")
 """
 
 from dataclasses import dataclass, field

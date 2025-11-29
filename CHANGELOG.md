@@ -16,7 +16,7 @@ The following changes are planned for the next major release:
 - **Cleaner separation of concerns**: Wrapper focuses on runtime state, not configuration management
 - **Breaking change**: This changes how the chat endpoint interacts with MCP servers
 
-## [0.4.2] - 2025-11-29
+## [0.4.2] - 2025-11-30
 
 ### Added
 - **Token file configuration support**: MCP servers can now specify custom token files
