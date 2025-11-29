@@ -89,21 +89,57 @@ Endpoints:
 - `POST /disconnect/{server_name}` → Disconnect a server
 - `GET /list_tools?server_name={server_name}` → List tools for a server
 - `POST /chat` → Send a chat request
+- `GET /history` → Get current conversation history
 - `POST /save_history/{file_name}` → Persists the conversation history on disk
 - `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file with the ongoing conversation
 
-Example:
+#### Usage Scenarios
 
+**Scenario 1: Using Tools with Explicit Connection**
 ```bash
-$ > curl -X POST http://0.0.0.0:8000/connect/math
-$ > {"status_code":200,"detail":"math server successfully connected."}
+# Step 1: Connect to MCP server
+curl -X POST http://localhost:8000/connect/math
 
-$ > curl http://127.0.0.1:8000/chat -H "Content-Type: application/json" -d '{
-      "message": "Add 5 and 10, then multiply the result by 20.",
-      "model": "llama3.2:3b",
-      "mcp_server": "math"
-    }'
-$ > ...
+# Step 2: Chat with tools
+curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
+  "message": "Add 5 and 10, then multiply the result by 20.",
+  "model": "llama3.2:3b",
+  "mcp_server": "math"
+}'
+```
+
+**Scenario 2: Auto-Connect (specifying server in chat request)**
+```bash
+# Server auto-connects when specified in mcp_server parameter
+curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
+  "message": "What is 15 multiplied by 3?",
+  "model": "llama3.2:3b",
+  "mcp_server": "math"
+}'
+# Server "math" is automatically connected if not already
+```
+
+**Scenario 3: Pure Chat (no tools)**
+```bash
+# Use empty mcp_server for pure Ollama chat without tools
+curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
+  "message": "Hello, how are you?",
+  "model": "llama3.2:3b",
+  "mcp_server": ""
+}'
+# No tools are sent to Ollama, faster response
+```
+
+**Scenario 4: Managing Server Connections**
+```bash
+# List available servers
+curl http://localhost:8000/servers
+
+# Disconnect a server
+curl -X POST http://localhost:8000/disconnect/math
+
+# Get conversation history
+curl http://localhost:8000/history
 ```
 
 ---
@@ -128,21 +164,71 @@ Exit with `/exit` or `/quit`.
 
 ## ⚙️ Configuration
 
-FastMCP servers are configured in `FASTMCP_SERVERS` inside `ollama_wrapper.py`. Example:
+The wrapper and FastMCP servers are configured in `server_config.toml`. Example:
 
-```python
-FASTMCP_SERVERS = {
-    "math": {
-        "name": "math_server",
-        "command": "uv",
-        "args": ["run", "--with", "fastmcp", "math_server.py"],
-        "host": "http://localhost:5000/mcp",
-    }
-}
+```toml
+# Wrapper settings (optional - defaults will be used if not specified)
+[wrapper]
+transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
+host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
+port = 8000                     # Server port (default: 8000)
+history_file = ""               # Path to conversation history file (default: none)
+overwrite_history = false       # Overwrite history file on exit (default: false)
+
+# FastMCP Server configurations
+[[servers]]
+name = "math"
+command = "uv"
+args = ["run", "--with", "fastmcp", "math_server.py"]
+host = "http://localhost:5000/mcp"
+port = 5000
+enabled = true
 ```
+
+### Configuration Priority
+
+Command-line arguments take precedence over config file settings:
+- If you specify `--host` or `--port` on the command line, those values will be used
+- If not specified on command line, values from `server_config.toml` will be used
+- If not in config file, default values will be used
+
+### Transport Methods
 
 - **STDIO transport** → spawn server locally
 - **HTTP transport** → connect to remote MCP server
+
+### Command-Line Arguments
+
+**Positional Arguments:**
+- `mode` - Operation mode: `api` or `cli` (default: `api`)
+- `model` - Ollama model to use (e.g., `llama3.2:3b`, `gemma3:1b`)
+
+**Optional Arguments:**
+- `-c, --config <file>` - Path to configuration file (default: `server_config.toml`)
+- `--history-file <file>` - Path to conversation history file to load/save
+- `-o, --overwrite-history` - Allow overwriting existing history file
+- `-t, --transport <method>` - Transport method: `HTTP` or `STDIO` (default: from config or `HTTP`)
+- `--host <address>` - API server host address (default: from config or `0.0.0.0`)
+- `--port <number>` - API server port number (default: from config or `8000`)
+
+#### Examples
+
+```bash
+# Use custom config file
+python ollama_wrapper.py api -c my_config.toml
+
+# Override config file settings
+python ollama_wrapper.py api --host 127.0.0.1 --port 9000
+
+# Specify transport method
+python ollama_wrapper.py api -t STDIO
+
+# Load conversation history
+python ollama_wrapper.py cli --history-file my_conversation.json
+
+# Start with specific model and auto-save history
+python ollama_wrapper.py api llama3.2:3b --history-file conversation.json -o
+```
 
 ---
 
@@ -162,18 +248,9 @@ flowchart TD
 
 ---
 
-## :bulb: Roadmap / TODO
+## :bulb: Release History / Roadmap
 
-- Implement FastMCP support in the CLI mode
-- Add argument parser for configuring the API host.
-- Logging support
-
----
-
-## Release History
-
-- 2025-09-02 - v. 0.2.0 - Added external MCP config file support and argument parser
-- 2025-08-19 - v. 0.1.0 - Initial Release
+Please check the [Changelog](CHANGELOG.md) file for more information.
 
 ---
 

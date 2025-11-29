@@ -4,7 +4,7 @@ A proxy service that exposes FastMCP tools to Ollama via API endpoint
 Usage:
 - uv run ollama_wrapper.py api gemma3:1b
 or
-- python ollama_wrapper.py api llama3.2:3b
+- python ollama_wrapper.py api llama3.2:3b --host 0.0.0.0 --port 8080
 
 Then use:
 curl http://localhost:8000/chat
@@ -15,6 +15,7 @@ curl http://localhost:8000/chat
 import argparse
 from pathlib import Path
 import mcpserver_config
+import wrapper_config
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple, Optional
@@ -26,7 +27,7 @@ from fastmcp.client.transports import StdioTransport
 from contextlib import asynccontextmanager
 from enum import Enum
 
-config = None
+mcp_config = None
 # Global FastMCP clients storage
 fastmcp_clients = {} # client that have been already initialised
 fastmcp_tools = {}
@@ -108,12 +109,26 @@ class OllamaWrapper:
     def __init__(self,
                 model="llama3.2:3b",
                 history=None,
-                transport:TransportMethod=TransportMethod.HTTP
+                transport:TransportMethod=TransportMethod.HTTP,
+                history_file:str="",
+                overwrite_history:bool=False
             ):
         self.model = model
         self.message_history = history or MessageHistory()
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="1.0.0", lifespan=OllamaWrapper._lifespan)
+        self.history_file = history_file
+        self.overwrite_history = overwrite_history
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.3.0", lifespan=OllamaWrapper._lifespan)
         self.transport = transport
+
+        # Load history from file if specified
+        if self.history_file:
+            try:
+                self.message_history.load(self.history_file)
+                print(f"📖 Loaded conversation history from {self.history_file}")
+            except FileNotFoundError:
+                print(f"📝 History file {self.history_file} not found, starting fresh")
+            except Exception as e:
+                print(f"⚠️  Warning: Could not load history file: {e}")
 
         @self.app.get("/list_tools")
         async def list_tools(server_name: str):
@@ -124,6 +139,11 @@ class OllamaWrapper:
         async def list_servers() -> dict:
             """List available FastMCP servers"""
             return await self._list_servers()
+
+        @self.app.get("/history")
+        async def get_history() -> dict:
+            """Get current conversation history"""
+            return await self._get_history()
 
         @self.app.post("/connect/{server_name}")
         async def connect_server(server_name: str) -> dict:
@@ -176,7 +196,7 @@ class OllamaWrapper:
             server_name: str
             ) -> Tuple[Client, List[Dict[str, Any]]]:
         """Initialise FastMCP client connection or return existing if any."""
-        if server_name is None or len(server_name) == 0 or server_name not in config:
+        if server_name is None or len(server_name) == 0 or server_name not in mcp_config:
             raise ValueError(f"Unknown FastMCP server: {server_name}")
 
         # Return existing client if already initialised
@@ -184,7 +204,7 @@ class OllamaWrapper:
             return fastmcp_clients[server_name], fastmcp_tools[server_name]
 
         # Initialize new client if configuration exists
-        mcp_server = config[server_name]
+        mcp_server = mcp_config[server_name]
 
         if not mcp_server.enabled:
             raise HTTPException(status_code=500, detail=f"Failed to connect. FastMCP server {server_name} is not enabled.")
@@ -346,6 +366,36 @@ class OllamaWrapper:
             print(f"Error fetching tools: {e}")
             return []
 
+    def __auto_save_history(self):
+        """
+        Automatically save conversation history to file if configured.
+
+        Saves to the file specified in self.history_file if set.
+        Respects the overwrite_history flag for whether to overwrite existing files.
+        """
+        if not self.history_file:
+            return  # No history file configured, skip saving
+
+        try:
+            file_path = Path(self.history_file)
+
+            # Create parent directory if it doesn't exist
+            if file_path.parent and not file_path.parent.exists():
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Check if file exists and overwrite flag
+            if file_path.exists() and not self.overwrite_history:
+                # File exists but we're not allowed to overwrite - skip
+                # This prevents overwriting on the first save
+                pass
+
+            # Save the history
+            self.message_history.save(str(file_path))
+
+        except Exception as e:
+            # Don't fail the chat if history saving fails, just log it
+            print(f"⚠️  Warning: Could not auto-save history: {e}")
+
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """
         Chat endpoint that uses FastMCP tools with Ollama
@@ -361,24 +411,27 @@ class OllamaWrapper:
 
         # STEP 1: Initialise an MCP server if specified
         # This is optional, if no server is specified, it will just use Ollama
+        # Determine which tools to use for THIS request
+        request_tools = []
         if request.mcp_server is not None and len(request.mcp_server) != 0:
             try:
                 await self.initialise_mcp_client(request.mcp_server)
+                # Use tools only for the requested server
+                request_tools = fastmcp_tools.get(request.mcp_server, [])
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
 
         tools_used = []
         self.message_history.add("user", request.message)
 
-        # messages = [{"role": "user", "content": request.message}]
-
         try:
-            # STEP 2: Call to Ollama with available tools if any
-            if len(fastmcp_tools_expanded) > 0:
+            # STEP 2: Call to Ollama with tools only if an MCP server was specified
+            # This ensures tools don't persist from previous requests
+            if len(request_tools) > 0:
                 response = ollama.chat(
                     model=request.model,
                     messages=self.message_history.get(),
-                    tools=fastmcp_tools_expanded,
+                    tools=request_tools,
                     options={'temperature': 0}
                 )
 
@@ -421,6 +474,7 @@ class OllamaWrapper:
 
                     # Response with tools
                     self.message_history.add("assistant", response_w_tools['message']['content'])
+                    self.__auto_save_history()  # Auto-save after response
                     return ChatResponse(
                         response=response_w_tools['message']['content'],
                         tools_used=tools_used
@@ -428,6 +482,7 @@ class OllamaWrapper:
                 else:
                     # Direct response, no tools used
                     self.message_history.add("assistant", response['message']['content'])
+                    self.__auto_save_history()  # Auto-save after response
                     return ChatResponse(
                         response=response['message']['content'],
                         tools_used=[]
@@ -439,6 +494,7 @@ class OllamaWrapper:
                     messages=self.message_history.get()
                 )
                 self.message_history.add("assistant", response['message']['content'])
+                self.__auto_save_history()  # Auto-save after response
                 return ChatResponse(
                     response=response['message']['content'],
                     tools_used=[]
@@ -465,9 +521,28 @@ class OllamaWrapper:
     async def _list_servers(self) -> dict:
         """List available FastMCP servers"""
         result = {}
-        for name, _ in config.servers.items():
+        for name, _ in mcp_config.servers.items():
             result[name] = {"enabled": True if fastmcp_clients.get(name, False) else False}
         return {"servers": result}
+
+    async def _get_history(self) -> dict:
+        """
+        Get current conversation history.
+
+        Returns the in-memory conversation state including all messages and summary.
+
+        Returns:
+            dict: Contains 'messages' (list of conversation messages) and 'summary' (if any)
+
+        Example usage:
+            ```bash
+            curl http://localhost:8000/history
+            ```
+        """
+        return {
+            "messages": self.message_history.get(),
+            "summary": self.message_history.summary
+        }
 
     async def _connect_server(self, server_name: str) -> dict:
         """Connect a FastMCP server.
@@ -552,27 +627,43 @@ class OllamaWrapper:
         FastMCP servers at runtime via API calls.
 
         Arguments:
-            message (str): The user message to send to the model.
-            model (str): The Ollama model to use (default: "llama3.2:3b").
-            mcp_server (str, optional): The FastMCP server to connect to (default: None).
+            host (str): The host address to bind the server to (default: "0.0.0.0").
+            port (int): The port number to bind the server to (default: 8000).
 
         Example usage:
             ```bash
-            curl http://localhost:8000/chat -H "Content-Type: application/json"
-            -d '{"message": "I need to sum these two numbers: 5 and 10.
-            I want the sum output to be multiplied by 20 and get the final result.
-            Use multiple tools if necessary.", "model": "llama3.2:3b", "mcp_server": ""}'
+            # Start server on default address (0.0.0.0:8000)
+            python ollama_wrapper.py api
+
+            # Start server on custom address
+            python ollama_wrapper.py api --host 127.0.0.1 --port 8080
+
+            # First, connect to an MCP server
+            curl -X POST http://localhost:8000/connect/math
+
+            # Then make a chat request with tools
+            curl http://localhost:8000/chat -H "Content-Type: application/json" \\
+            -d '{"message": "Add 5 and 10, then multiply the result by 20.", \\
+                 "model": "llama3.2:3b", "mcp_server": "math"}'
+
+            # Or chat without tools (pure Ollama)
+            curl http://localhost:8000/chat -H "Content-Type: application/json" \\
+            -d '{"message": "Hello, how are you?", \\
+                 "model": "llama3.2:3b", "mcp_server": ""}'
             ```
         """
-        if host == "" or host == "localhost" or host == "0.0.0.0":
-            host = "127.0.0.1"
+        # Validate port range
         if port <= 0 or port > 65535:
+            print(f"⚠️  Invalid port {port}. Using default port 8000.")
             port = 8000
+
+        # Display host for informational purposes
+        display_host = host if host not in ("", "0.0.0.0") else "localhost"
 
         print("🚀 Starting Ollama-FastMCP Wrapper...")
         print("📡 This service bridges Ollama models with FastMCP servers")
-        print(f"🔗 Available at: http://{host}:{port}")
-        print(f"📚 Docs at: http://{host}:{port}/docs")
+        print(f"🔗 Available at: http://{display_host}:{port}")
+        print(f"📚 Docs at: http://{display_host}:{port}/docs")
 
         uvicorn.run(self.app, host=host, port=port)
 
@@ -636,13 +727,14 @@ class OllamaWrapper:
 if __name__ == "__main__":
     """Start the Ollama-FastMCP Wrapper.
 
-    TO-DO: Add argument parser for configuring the API host.
     TO-DO: Add logging support.
 
     Example:
         uv python run ollama_wrapper.py [mode] [model]
         or
         uv python run ollama_wrapper.py cli gemma3:1b
+        or
+        uv python run ollama_wrapper.py api --host 127.0.0.1 --port 8080
     """
     # Create the argument parser
     parser = argparse.ArgumentParser(
@@ -688,17 +780,46 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--transport',
                         choices=['HTTP', 'STDIO'],
                         nargs='?',
-                        default='HTTP',
-                        help='Transport method to connect to FastMCP servers (default: http).')
+                        default=None,
+                        help='Transport method to connect to FastMCP servers (default: from config or HTTP).')
+
+    parser.add_argument('--host',
+                        type=str,
+                        nargs='?',
+                        default=None,
+                        help='Host address for the API server (default: from config or 0.0.0.0).')
+
+    parser.add_argument('--port',
+                        type=int,
+                        nargs='?',
+                        default=None,
+                        help='Port number for the API server (default: from config or 8000).')
 
     # Parse the arguments
     args = parser.parse_args()
 
-    config = mcpserver_config.Config.from_toml(args.config)
+    # Load configurations from TOML file
+    mcp_config = mcpserver_config.Config.from_toml(args.config)
+    wrap_config = wrapper_config.WrapperConfig.from_toml(args.config)
+
+    # Command-line arguments take precedence over config file
+    # Use config values as defaults if command-line args are not explicitly provided
+    transport = args.transport if args.transport is not None else wrap_config.transport
+    host = args.host if args.host is not None else wrap_config.host
+    port = args.port if args.port is not None else wrap_config.port
+    history_file = args.history_file if args.history_file else wrap_config.history_file
+    overwrite_history = args.overwrite_history if args.overwrite_history else wrap_config.overwrite_history
+
+    # Ensure we have valid defaults if not set in config
+    transport = transport or "HTTP"
+    host = host or "0.0.0.0"
+    port = port or 8000
+
     wrapper = OllamaWrapper(
         model=args.model,
-        transport=TransportMethod[args.transport], # TransportMethod.HTTP
-        history=args.history_file
+        transport=TransportMethod[transport],
+        history_file=history_file,
+        overwrite_history=overwrite_history
         )
 
     # while True:
@@ -708,7 +829,7 @@ if __name__ == "__main__":
     #     print("❌ Invalid choice. Please type 'api' or 'cli'.")
 
     if args.mode == "api":
-        wrapper.run_api()
+        wrapper.run_api(host=host, port=port)
     elif args.mode == "cli":
         wrapper.run_cli()
     else:
