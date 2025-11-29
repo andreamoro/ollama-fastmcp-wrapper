@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned for v0.5.0 - Chat Separation Logic
+The following changes are planned for the next major release:
+
+- **Remove auto-loading functionality**: Chat endpoint will no longer automatically initialize MCP servers
+- **Explicit connection requirement**: Users must explicitly connect/disconnect servers via API endpoints
+- **Remove `mcp_config` dependency from chat flow**: The chat endpoint will only use tools from already-connected servers
+- **Cleaner separation of concerns**: Wrapper focuses on runtime state, not configuration management
+- **Breaking change**: This changes how the chat endpoint interacts with MCP servers
+
+## [0.4.1] - 2025-11-29
+
+### Added
+- **Demo scripts directory** (`demos/`): Comprehensive usage examples
+  - Both shell (`.sh`) and Python (`.py`) versions of each demo
+  - `basic_chat` - Simple chat without tools
+  - `math_operations` - Using the math MCP server
+  - `ipinfo_lookup` - IP geolocation queries
+  - `server_management` - Connect/disconnect/list servers lifecycle
+  - `history_management` - Conversation persistence
+- **Demo documentation**: Detailed `demos/README.md` with prerequisites, usage, and troubleshooting
+
+### Changed
+- Improved project documentation with practical examples
+- Better onboarding experience for new users
+
 ## [0.4.0] - 2025-11-29
 
 ### Breaking Changes
@@ -109,7 +134,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /save_history/{file_name}` - Save conversation history
 - `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
 
-[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.1.0...v0.2.0

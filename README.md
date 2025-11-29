@@ -68,10 +68,22 @@ Run the wrapper:
 python ollama_wrapper.py
 ```
 
-You’ll be asked which mode to start in:
+You'll be asked which mode to start in:
 
 - **API mode** → starts a REST API on `http://127.0.0.1:8000`
 - **CLI mode** → starts a terminal-based chat loop
+
+### 📚 Demo Scripts
+
+The `demos/` directory contains comprehensive usage examples in both shell and Python formats:
+
+- **basic_chat** - Simple chat without tools
+- **math_operations** - Using the math MCP server
+- **ipinfo_lookup** - IP geolocation queries
+- **server_management** - Connect/disconnect/list servers
+- **history_management** - Conversation persistence
+
+See [`demos/README.md`](demos/README.md) for detailed instructions and prerequisites.
 
 ---
 

@@ -1,6 +1,6 @@
 [project]
 name = "Ollama-FastMCP-Wrapper"
-version = "0.4.0"
+version = "0.4.1"
 description = "A proxy service that bridges Ollama with FastMCP thus allowing MCP servers to be plugged and used locally."
 readme = "README.md"
 requires-python = ">=3.13"
