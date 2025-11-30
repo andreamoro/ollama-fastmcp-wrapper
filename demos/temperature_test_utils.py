@@ -170,27 +170,67 @@ def select_temperatures():
         print("Invalid selection. Using default temperatures.")
         return TEMPERATURE_TESTS
 
+def resolve_prompt_path(path):
+    """Resolve prompt file path - tries current dir, then demos/prompts/, then project root"""
+    if not path:
+        return None
+
+    # If absolute path, use as-is
+    if os.path.isabs(path):
+        return path if os.path.exists(path) else None
+
+    # Try current directory
+    if os.path.exists(path):
+        return path
+
+    # Try relative to demos/prompts/ directory
+    demos_dir = os.path.dirname(os.path.abspath(__file__))
+    prompts_path = os.path.join(demos_dir, 'prompts', path)
+    if os.path.exists(prompts_path):
+        return prompts_path
+
+    # Try project root + path
+    project_root = os.path.dirname(demos_dir)
+    root_path = os.path.join(project_root, path)
+    if os.path.exists(root_path):
+        return root_path
+
+    return None
+
 def get_prompt_from_file_or_input(prompt_arg=None):
-    """Get prompt from file, command line arg, or user input"""
+    """Get prompt from file, command line arg, or user input
+
+    File path resolution order:
+    1. Absolute paths (e.g., /home/user/prompt.txt)
+    2. Relative to current directory (e.g., ./prompt.txt)
+    3. Relative to demos/prompts/ (e.g., coreference_resolution.txt)
+    4. Relative to project root (e.g., demos/prompts/coreference_resolution.txt)
+    """
     # If command line argument provided
     if prompt_arg and prompt_arg != '':
-        # Check if it's a file path
-        try:
-            with open(prompt_arg, 'r') as f:
-                prompt = f.read().strip()
-                print(f"Loaded prompt from file: {prompt_arg}")
-                return prompt
-        except FileNotFoundError:
+        # Try to resolve as file path
+        resolved_path = resolve_prompt_path(prompt_arg)
+
+        if resolved_path:
+            try:
+                with open(resolved_path, 'r') as f:
+                    prompt = f.read().strip()
+                    print(f"✓ Loaded prompt from: {resolved_path}")
+                    return prompt
+            except Exception as e:
+                print(f"Error reading prompt file: {e}")
+                return DEFAULT_PROMPT
+        else:
             # Not a file, treat as direct prompt text
             return prompt_arg
-        except Exception as e:
-            print(f"Error reading prompt file: {e}")
-            return DEFAULT_PROMPT
 
     # Ask user interactively
     print("\nPrompt configuration:")
     print("  - Press Enter to use default prompt")
-    print("  - Enter a file path to load prompt from file")
+    print("  - Enter a file path to load from file (supports multiple formats):")
+    print("    • Just filename: coreference_resolution.txt (searches demos/prompts/)")
+    print("    • Relative path: demos/prompts/myfile.txt")
+    print("    • Absolute path: /full/path/to/file.txt")
     print("  - Enter text directly to use as prompt")
     print(f"\nDefault prompt: '{DEFAULT_PROMPT}'")
 
@@ -199,15 +239,21 @@ def get_prompt_from_file_or_input(prompt_arg=None):
     if user_input == '':
         return DEFAULT_PROMPT
 
-    # Try to load as file
-    try:
-        with open(user_input, 'r') as f:
-            prompt = f.read().strip()
-            print(f"✓ Loaded prompt from file: {user_input}")
-            return prompt
-    except:
-        # Treat as direct text
-        return user_input
+    # Try to resolve as file path
+    resolved_path = resolve_prompt_path(user_input)
+
+    if resolved_path:
+        try:
+            with open(resolved_path, 'r') as f:
+                prompt = f.read().strip()
+                print(f"✓ Loaded prompt from: {resolved_path}")
+                return prompt
+        except:
+            # If file read fails, treat as direct text
+            pass
+
+    # Treat as direct text
+    return user_input
 
 def save_results_to_json(results_data, filename):
     """Save test results to JSON file"""

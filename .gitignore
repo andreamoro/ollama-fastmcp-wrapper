@@ -17,6 +17,6 @@ mcp_servers/mcp_tokens.toml
 messages_history/
 
 # Custom prompts (intellectual property)
-prompts/*
-!prompts/.gitkeep
-!prompts/README.md
+demos/prompts/*
+!demos/prompts/.gitkeep
+!demos/prompts/README.md

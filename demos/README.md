@@ -166,9 +166,10 @@ Compare multiple Ollama models across different temperature settings with intera
 python demos/temperature_test_multi_model.py [prompt_file_or_text]
 
 # Examples:
-python demos/temperature_test_multi_model.py                    # Interactive prompts
-python demos/temperature_test_multi_model.py "Custom prompt"    # Direct prompt
-python demos/temperature_test_multi_model.py prompts/coding.txt # Load from file
+python demos/temperature_test_multi_model.py                         # Interactive prompts
+python demos/temperature_test_multi_model.py "Custom prompt"         # Direct prompt
+python demos/temperature_test_multi_model.py coreference_resolution.txt  # Just filename (auto-searches demos/prompts/)
+python demos/temperature_test_multi_model.py demos/prompts/myfile.txt    # Relative path
 ```
 
 **Interactive Configuration:**
