@@ -410,25 +410,28 @@ class OllamaWrapper:
         Chat endpoint that uses FastMCP tools with Ollama
 
         This function:
-        1. Connects to specified FastMCP server if any
-        2. Determine if any tools are attached and send the message to Ollama to process
-        3. If the model determine the need of the tools, call them via FastMCP and get results
-        3. Sends user message + tools to Ollama model if available, or just the message if not
-        4. If model requests tools, executes them via FastMCP
-        5. Returns final response
+        1. Uses tools from already-connected FastMCP servers
+        2. Sends user message + tools to Ollama model if available, or just the message if not
+        3. If model requests tools, executes them via FastMCP
+        4. Returns final response
+
+        Note (v0.5.0+): Servers must be explicitly connected via /connect/{server_name}
+        before they can be used in chat. Auto-loading has been removed.
         """
 
-        # STEP 1: Initialise an MCP server if specified
-        # This is optional, if no server is specified, it will just use Ollama
-        # Determine which tools to use for THIS request
+        # STEP 1: Get tools from already-connected server (if specified)
+        # No auto-loading - server must be explicitly connected first
         request_tools = []
         if request.mcp_server is not None and len(request.mcp_server) != 0:
-            try:
-                await self.initialise_mcp_client(request.mcp_server)
-                # Use tools only for the requested server
-                request_tools = fastmcp_tools.get(request.mcp_server, [])
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+            # Check if server is already connected
+            if request.mcp_server not in fastmcp_clients:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Server '{request.mcp_server}' is not connected. Please connect first using POST /connect/{request.mcp_server}"
+                )
+
+            # Use tools only for the requested server
+            request_tools = fastmcp_tools.get(request.mcp_server, [])
 
         tools_used = []
         self.message_history.add("user", request.message)
