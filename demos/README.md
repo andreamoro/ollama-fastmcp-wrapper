@@ -56,7 +56,7 @@ python demos/math_operations.py
 
 **What it shows:**
 - Connecting to an MCP server
-- Using math tools (add, subtract, multiply, divide)
+- Using math tools (add, multiply)
 - Tool-augmented LLM reasoning
 
 ---

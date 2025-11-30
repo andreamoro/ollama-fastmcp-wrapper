@@ -10,6 +10,7 @@ from temperature_test_utils import (
     test_temperature_model,
     format_duration,
     get_available_models,
+    get_config_temperature,
     get_prompt_from_file_or_input,
     select_temperatures,
     save_results_to_json,
@@ -152,6 +153,9 @@ def main():
         print("\nNo results collected. Please check if the API is running.")
         sys.exit(1)
 
+    # Get actual config temperature for metadata
+    config_temp = get_config_temperature()
+
     # Build results data structure
     results_data = {
         "test_metadata": {
@@ -161,7 +165,7 @@ def main():
             "total_duration_readable": format_duration(total_duration),
             "prompt": prompt,
             "models_tested": selected_models,
-            "temperatures_tested": [t[0] if t[0] is not None else "default (0.2)" for t in selected_temps],
+            "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
             "total_tests": len(all_results)
         },
         "results": all_results,
@@ -215,7 +219,7 @@ def main():
         print("=" * 140)
 
         for temp, desc in selected_temps:
-            temp_display = temp if temp is not None else "default (0.2)"
+            temp_display = temp if temp is not None else f"default ({config_temp})"
             temp_results = [r for r in all_results if r['temperature'] == temp_display]
 
             if not temp_results:

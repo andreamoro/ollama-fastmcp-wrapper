@@ -6,10 +6,38 @@ import requests
 import time
 import json
 import sys
+import os
 from datetime import datetime
 
 HOST = "http://localhost:8000"
 DEFAULT_PROMPT = "Explain what a binary search algorithm does in one sentence."
+
+def get_config_temperature():
+    """Read default temperature from wrapper_config.toml"""
+    try:
+        # Get the parent directory (project root)
+        demos_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(demos_dir)
+        config_path = os.path.join(project_root, 'wrapper_config.toml')
+
+        if not os.path.exists(config_path):
+            return 0.2  # Fallback default
+
+        with open(config_path, 'r') as f:
+            for line in f:
+                # Look for model line with temperature
+                if 'model' in line and 'temperature' in line:
+                    # Parse inline table: model = { default = "...", temperature = 0.2 }
+                    try:
+                        # Extract temperature value
+                        temp_part = line.split('temperature')[1]
+                        temp_str = temp_part.split('=')[1].strip().rstrip('}').strip()
+                        return float(temp_str)
+                    except:
+                        pass
+        return 0.2  # Fallback if not found
+    except:
+        return 0.2  # Fallback on any error
 
 def test_temperature_model(model, temp, description, prompt=None):
     """Test a specific model and temperature combination"""
@@ -35,9 +63,12 @@ def test_temperature_model(model, temp, description, prompt=None):
 
         result = response.json()
 
+        # Get actual config temperature if using default
+        actual_temp = temp if temp is not None else f"default ({get_config_temperature()})"
+
         return {
             "model": model,
-            "temperature": temp if temp is not None else "default (0.2)",
+            "temperature": actual_temp,
             "description": description,
             "response": result['response'],
             "elapsed_time": elapsed_time,
@@ -102,10 +133,13 @@ TEMPERATURE_TESTS = [
 
 def select_temperatures():
     """Allow user to select which temperatures to test"""
+    # Read actual default from config
+    config_temp = get_config_temperature()
+
     available_temps = [
         (0.0, "Zero (Maximum Determinism)"),
         (0.1, "Very Low (Deterministic)"),
-        (None, "Default from Config (0.2)"),
+        (None, f"Default from Config ({config_temp})"),
         (0.5, "Low-Medium"),
         (0.8, "Medium (Balanced)"),
         (1.0, "Medium-High"),
