@@ -15,3 +15,8 @@ mcp_servers/mcp_tokens.toml
 # Conversation history files
 *.json
 messages_history/
+
+# Custom prompts (intellectual property)
+prompts/*
+!prompts/.gitkeep
+!prompts/README.md
