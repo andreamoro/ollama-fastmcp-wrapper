@@ -209,6 +209,7 @@ Version 0.4.0 introduces a separated configuration structure:
    host = "http://localhost:5001/mcp"
    port = 5001
    enabled = true
+   token_file = "mcp_tokens.toml"  # Optional: specify token file (default: mcp_tokens.toml)
    ```
 
 3. **API Tokens** (`mcp_servers/mcp_tokens.toml` - gitignored):

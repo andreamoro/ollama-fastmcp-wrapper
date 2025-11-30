@@ -16,6 +16,22 @@ The following changes are planned for the next major release:
 - **Cleaner separation of concerns**: Wrapper focuses on runtime state, not configuration management
 - **Breaking change**: This changes how the chat endpoint interacts with MCP servers
 
+## [0.4.2] - 2025-11-29
+
+### Added
+- **Token file configuration support**: MCP servers can now specify custom token files
+  - New `token_file` parameter in `MCPServerConfig` (defaults to "mcp_tokens.toml")
+  - `get_token_file_path()` method to retrieve the full path to token file
+  - Flexible token management for different servers
+
+### Changed
+- **IPInfo server**: Now uses token file from server configuration instead of hardcoded path
+- **Token file resolution**: Token files are resolved relative to `mcp_servers/` directory
+
+### Improved
+- More flexible token management allowing different servers to use different token files
+- Better separation between server configuration and token storage
+
 ## [0.4.1] - 2025-11-29
 
 ### Added
@@ -134,7 +150,8 @@ The following changes are planned for the next major release:
 - `POST /save_history/{file_name}` - Save conversation history
 - `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
 
-[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.1...HEAD
+[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.2.0...v0.3.0

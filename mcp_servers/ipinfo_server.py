@@ -42,15 +42,27 @@ KNOWN_IPS = {
     "youtube": "142.250.185.78"
 }
 
-def get_ipinfo_token() -> str:
-    """Get IPInfo API token from mcp_tokens.toml file."""
-    # Look for token file in mcp_servers directory
-    token_file = Path(__file__).parent / "mcp_tokens.toml"
+def get_ipinfo_token(token_file_path: str = None) -> str:
+    """
+    Get IPInfo API token from specified token file.
+
+    Args:
+        token_file_path: Optional path to token file. If None, defaults to mcp_tokens.toml
+                        in the mcp_servers directory.
+
+    Returns:
+        str: The IPInfo API token
+    """
+    # Default to mcp_tokens.toml in mcp_servers directory if not specified
+    if token_file_path is None:
+        token_file_path = str(Path(__file__).parent / "mcp_tokens.toml")
+
+    token_file = Path(token_file_path)
 
     if not token_file.exists():
         raise ValueError(
             f"Token file not found: {token_file}\n"
-            "Please create mcp_servers/mcp_tokens.toml from mcp_tokens.toml.example"
+            "Please create the token file from mcp_tokens.toml.example"
         )
 
     try:
@@ -59,7 +71,7 @@ def get_ipinfo_token() -> str:
 
         if "ipinfo" not in tokens or "token" not in tokens["ipinfo"]:
             raise ValueError(
-                "IPInfo token not found in mcp_tokens.toml\n"
+                f"IPInfo token not found in {token_file}\n"
                 "Please add: [ipinfo]\\ntoken = \"your_token_here\""
             )
 
@@ -165,11 +177,13 @@ if __name__ == "__main__":
     config_file = sys.argv[1] if len(sys.argv) > 1 else "mcp_servers_config.toml"
 
     try:
-        # Verify API token is available
-        token = get_ipinfo_token()
-
+        # Load server configuration
         config = mcpserver_config.Config.from_toml(config_file)
         server_config = config["ipinfo"]
+
+        # Get API token from configured token file
+        token_file_path = server_config.get_token_file_path()
+        token = get_ipinfo_token(token_file_path)
 
         # Extract host and port from configuration
         if server_config.host:

@@ -32,6 +32,7 @@ class MCPServerConfig:
               Example: "http://localhost:5000/mcp"
         port: Port number the server runs on (informational for HTTP, used for STDIO)
         enabled: Whether this server is available for connections
+        token_file: Optional token file name in mcp_servers/ directory (default: "mcp_tokens.toml")
     """
     name: str = ""
     command: str = ""
@@ -39,6 +40,7 @@ class MCPServerConfig:
     host: str = ""
     port: int = 0
     enabled: bool = False
+    token_file: str = "mcp_tokens.toml"
 
     def __post_init__(self):
         """
@@ -49,6 +51,28 @@ class MCPServerConfig:
         """
         if isinstance(self.args, str):
             self.args = [self.args]
+
+    def get_token_file_path(self) -> str:
+        """
+        Get the full path to the token file.
+
+        Returns the absolute path to the token file in the mcp_servers/ directory.
+        The token_file attribute should be just a filename, which will be resolved
+        relative to the mcp_servers/ directory.
+
+        Returns:
+            str: Absolute path to the token file
+
+        Example:
+            config = MCPServerConfig(name="ipinfo", token_file="mcp_tokens.toml")
+            path = config.get_token_file_path()
+            # Returns: /path/to/mcp_servers/mcp_tokens.toml
+        """
+        import os
+        from pathlib import Path
+        # Get the directory where mcpserver_config.py is located (mcp_servers/)
+        mcp_servers_dir = Path(__file__).parent
+        return str(mcp_servers_dir / self.token_file)
 
 @dataclass
 class Config:
