@@ -98,6 +98,7 @@ python ollama_wrapper.py
 
 Endpoints:
 
+- `GET /models` → List available Ollama models with details (name, size, family, parameters)
 - `GET /servers` → List connected servers with their tools and available API endpoints
 - `POST /connect/{server_name}` → Connect a FastMCP server
 - `POST /disconnect/{server_name}` → Disconnect a server
@@ -144,7 +145,54 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 # No tools are sent to Ollama, faster response
 ```
 
-**Scenario 4: Managing Server Connections**
+**Scenario 4: Custom Temperature for Creative Tasks**
+```bash
+# Override default temperature for more creative responses
+curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
+  "message": "Write a creative poem about programming",
+  "model": "llama3.2:3b",
+  "mcp_server": "",
+  "temperature": 1.5
+}'
+# Higher temperature (1.5) produces more creative, varied responses
+
+# Response includes performance metrics:
+# {
+#   "response": "...",
+#   "tools_used": [],
+#   "metrics": {
+#     "prompt_tokens": 45,
+#     "completion_tokens": 120,
+#     "tokens_per_second": 42.5,
+#     "total_duration_s": 2.82,
+#     "eval_duration_s": 2.12,
+#     "prompt_eval_duration_s": 0.68
+#   }
+# }
+```
+
+**Scenario 5: Discovering Available Models**
+```bash
+# List all installed Ollama models
+curl http://localhost:8000/models
+
+# Response includes model details:
+# {
+#   "models": [
+#     {
+#       "name": "llama3.2:3b",
+#       "size": 2019393189,
+#       "size_gb": 2.02,
+#       "family": "llama",
+#       "parameter_size": "3.2B",
+#       "quantization": "Q4_K_M"
+#     }
+#   ],
+#   "count": 1
+# }
+```
+
+**Scenario 6: Managing Server Connections**
 ```bash
 # List available servers
 curl http://localhost:8000/servers
@@ -186,11 +234,20 @@ Version 0.4.0 introduces a separated configuration structure:
    ```toml
    [wrapper]
    transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
-   host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
+   host = "0.0.0.0"                # Server host address (default: 0.0.0.0)
    port = 8000                     # Server port (default: 8000)
    history_file = ""               # Path to conversation history file (default: none)
    overwrite_history = false       # Overwrite history file on exit (default: false)
+   model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
    ```
+
+   **Model Settings:**
+   - `default`: Default model name if not specified in requests
+   - `temperature`: Controls response randomness (0.0-2.0)
+     - Low (0.0-0.3): Consistent, deterministic responses (recommended for factual tasks)
+     - Medium (0.7-1.0): Balanced creativity
+     - High (1.5-2.0): Very creative, less predictable
+   - Temperature can be overridden per request via API
 
 2. **MCP Servers Configuration** (`mcp_servers/mcp_servers_config.toml`):
    ```toml

@@ -100,4 +100,5 @@ args = ["run", "--with", "fastmcp", "/path/to/your_server.py"]
 host = "http://localhost:PORT/mcp"
 port = PORT
 enabled = true
+token_file = "mcp_tokens.toml" # Optional
 ```

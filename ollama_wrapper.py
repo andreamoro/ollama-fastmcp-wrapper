@@ -41,10 +41,12 @@ class ChatRequest(BaseModel):
     message: str
     model: str = "llama3.2:3b"
     mcp_server: Optional[str] = ""
+    temperature: Optional[float] = None  # Optional temperature override (0.0-2.0)
 
 class ChatResponse(BaseModel):
     response: str
     tools_used: List[str] = []
+    metrics: Optional[dict] = None  # Ollama metrics: tokens, timing, etc.
 
 class MessageHistory:
     def __init__(self,
@@ -111,12 +113,14 @@ class OllamaWrapper:
                 history=None,
                 transport:TransportMethod=TransportMethod.HTTP,
                 history_file:str="",
-                overwrite_history:bool=False
+                overwrite_history:bool=False,
+                config_temperature:float=0.2
             ):
         self.model = model
         self.message_history = history or MessageHistory()
         self.history_file = history_file
         self.overwrite_history = overwrite_history
+        self.config_temperature = config_temperature  # Default temperature from config
         self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.3.0", lifespan=OllamaWrapper._lifespan)
         self.transport = transport
 
@@ -139,6 +143,11 @@ class OllamaWrapper:
         async def list_servers() -> dict:
             """List available FastMCP servers"""
             return await self._list_servers()
+
+        @self.app.get("/models")
+        async def list_models() -> dict:
+            """List available Ollama models"""
+            return await self._list_models()
 
         @self.app.get("/history")
         async def get_history() -> dict:
@@ -424,6 +433,9 @@ class OllamaWrapper:
         tools_used = []
         self.message_history.add("user", request.message)
 
+        # Determine temperature: request parameter > config > default
+        temperature = request.temperature if request.temperature is not None else self.config_temperature
+
         try:
             # STEP 2: Call to Ollama with tools only if an MCP server was specified
             # This ensures tools don't persist from previous requests
@@ -432,7 +444,7 @@ class OllamaWrapper:
                     model=request.model,
                     messages=self.message_history.get(),
                     tools=request_tools,
-                    options={'temperature': 0}
+                    options={'temperature': temperature}
                 )
 
                 # STEP 3: Handle tool calls if requested
@@ -469,39 +481,80 @@ class OllamaWrapper:
                     # Get final response from Ollama
                     response_w_tools = ollama.chat(
                         model=request.model,
-                        messages=tool_messages
+                        messages=tool_messages,
+                        options={'temperature': temperature}
                     )
 
                     # Response with tools
                     self.message_history.add("assistant", response_w_tools['message']['content'])
                     self.__auto_save_history()  # Auto-save after response
+
+                    # Extract metrics from response
+                    metrics = self._extract_metrics(response_w_tools)
+
                     return ChatResponse(
                         response=response_w_tools['message']['content'],
-                        tools_used=tools_used
+                        tools_used=tools_used,
+                        metrics=metrics
                     )
                 else:
                     # Direct response, no tools used
                     self.message_history.add("assistant", response['message']['content'])
                     self.__auto_save_history()  # Auto-save after response
+
+                    # Extract metrics from response
+                    metrics = self._extract_metrics(response)
+
                     return ChatResponse(
                         response=response['message']['content'],
-                        tools_used=[]
+                        tools_used=[],
+                        metrics=metrics
                     )
             else:
                 # No FastMCP tools available, just return Ollama response
                 response = ollama.chat(
                     model=request.model,
-                    messages=self.message_history.get()
+                    messages=self.message_history.get(),
+                    options={'temperature': temperature}
                 )
                 self.message_history.add("assistant", response['message']['content'])
                 self.__auto_save_history()  # Auto-save after response
+
+                # Extract metrics from response
+                metrics = self._extract_metrics(response)
+
                 return ChatResponse(
                     response=response['message']['content'],
-                    tools_used=[]
+                    tools_used=[],
+                    metrics=metrics
                 )
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Chat failed: {e}")
+
+    def _extract_metrics(self, response: dict) -> dict:
+        """Extract timing and token metrics from Ollama response"""
+        metrics = {}
+
+        # Token counts
+        if 'prompt_eval_count' in response:
+            metrics['prompt_tokens'] = response['prompt_eval_count']
+        if 'eval_count' in response:
+            metrics['completion_tokens'] = response['eval_count']
+
+        # Timing (nanoseconds to seconds)
+        if 'prompt_eval_duration' in response:
+            metrics['prompt_eval_duration_s'] = response['prompt_eval_duration'] / 1e9
+        if 'eval_duration' in response:
+            metrics['eval_duration_s'] = response['eval_duration'] / 1e9
+        if 'total_duration' in response:
+            metrics['total_duration_s'] = response['total_duration'] / 1e9
+
+        # Calculate tokens per second
+        if 'eval_count' in response and 'eval_duration' in response and response['eval_duration'] > 0:
+            metrics['tokens_per_second'] = response['eval_count'] / (response['eval_duration'] / 1e9)
+
+        return metrics
 
     async def _list_tools(
             self,
@@ -541,6 +594,31 @@ class OllamaWrapper:
             }
 
         return {"servers": servers_info}
+
+    async def _list_models(self) -> dict:
+        """List available Ollama models"""
+        try:
+            models_response = ollama.list()
+            models_list = []
+
+            for model in models_response['models']:
+                model_info = {
+                    "name": model['model'],
+                    "size": model['size'],
+                    "size_gb": round(model['size'] / 1e9, 2),
+                    "modified_at": str(model['modified_at']),
+                    "family": model['details']['family'],
+                    "parameter_size": model['details']['parameter_size'],
+                    "quantization": model['details']['quantization_level']
+                }
+                models_list.append(model_info)
+
+            return {
+                "models": models_list,
+                "count": len(models_list)
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to list models: {e}")
 
     async def _get_history(self) -> dict:
         """
@@ -839,11 +917,15 @@ if __name__ == "__main__":
     host = host or "0.0.0.0"
     port = port or 8000
 
+    # Get temperature from config (with default fallback)
+    config_temperature = wrap_config.model.get('temperature', 0.2) if wrap_config.model else 0.2
+
     wrapper = OllamaWrapper(
         model=args.model,
         transport=TransportMethod[transport],
         history_file=history_file,
-        overwrite_history=overwrite_history
+        overwrite_history=overwrite_history,
+        config_temperature=config_temperature
         )
 
     # while True:

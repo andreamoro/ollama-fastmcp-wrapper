@@ -125,6 +125,90 @@ python demos/history_management.py
 
 ---
 
+### 6. Temperature Test (`temperature_test.*`)
+Compares response quality with different temperature settings and displays performance metrics.
+
+**Shell:**
+```bash
+./demos/temperature_test.sh
+```
+
+**Python:**
+```bash
+python demos/temperature_test.py
+```
+
+**What it shows:**
+- How temperature affects response consistency
+- Low temperature (0.1): Factual, deterministic
+- Default temperature (0.2): Consistent but natural
+- Medium temperature (0.8): Varied, conversational
+- High temperature (1.5): Creative, less predictable
+- Performance metrics in tabular format:
+  - **TPS (Tokens Per Second)**: Generation speed
+  - **Tokens**: Number of completion tokens
+  - **Time**: Total request time including network overhead
+  - **Total Duration**: Ollama processing time
+- Best practices for different use cases
+
+---
+
+### 7. Enhanced Temperature Test - Multi-Model (`temperature_test_multi_model.*`)
+Compare multiple Ollama models across different temperature settings with interactive configuration and persistent results.
+
+**Shell:**
+```bash
+./demos/temperature_test_multi_model.sh
+```
+
+**Python:**
+```bash
+python demos/temperature_test_multi_model.py [prompt_file_or_text]
+
+# Examples:
+python demos/temperature_test_multi_model.py                    # Interactive prompts
+python demos/temperature_test_multi_model.py "Custom prompt"    # Direct prompt
+python demos/temperature_test_multi_model.py prompts/coding.txt # Load from file
+```
+
+**Interactive Configuration:**
+1. **Prompt Selection**: Use default, enter custom text, or load from file
+2. **Model Selection**: Choose specific models or test all installed models
+3. **Temperature Selection**: Select from 8 predefined temperatures or choose custom values
+4. **Output File**: Auto-generated timestamp filename or custom name
+
+**What it shows:**
+- **Interactive model selection**: Choose which models to test from your installed Ollama models
+- **Interactive temperature selection**: Choose from 8 temperature options (0.0 to 2.0) or use defaults
+- **Custom prompts**: Load prompts from files or enter directly
+- **Multi-model comparison**: See how different models perform at the same temperature
+- **Comprehensive metrics**: TPS, tokens, timing for each model/temperature combination
+- **Persistent results**:
+  - JSON output with complete test metadata and results
+  - Auto-generated Markdown report with tables and detailed responses
+  - Timestamps (start/end) and total duration tracking
+- **Three result views**:
+  1. Results grouped by model (see each model across all temperatures)
+  2. Cross-model comparison (compare all models at each temperature)
+  3. Full responses for detailed analysis
+- **Summary statistics**: Fastest model, average TPS, response length variance
+- **Model insights**: Compare small vs. large models, different families (llama, qwen, phi3, etc.)
+- Uses the `/models` API endpoint to dynamically discover available models
+
+**Output Files:**
+- `YYYYMMDD_HHMMSS_multi_test_comparison.json` - Complete test data in JSON format
+- `YYYYMMDD_HHMMSS_multi_test_comparison.md` - Human-readable Markdown report
+
+**Example use cases:**
+- Find the fastest model for your hardware
+- Compare accuracy vs. speed tradeoffs
+- Test which model works best for your specific use case
+- Evaluate different quantization levels (Q4 vs. Q5 vs. Q8)
+- Build a database of model performance benchmarks
+- Document model selection decisions for projects
+
+---
+
 ## Python Dependencies
 
 Python demos require the `requests` library:
@@ -141,16 +225,17 @@ uv pip install requests
 
 ## Shell Dependencies
 
-Shell demos require `jq` for JSON formatting:
+Shell demos require `jq` for JSON formatting and `bc` for calculations:
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install jq
+sudo apt-get install jq bc
 ```
 
 **macOS:**
 ```bash
 brew install jq
+# bc is typically pre-installed on macOS
 ```
 
 ## Notes

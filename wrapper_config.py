@@ -11,6 +11,7 @@ Configuration Structure in TOML:
     port = 8000                  # Port for the wrapper's API server
     history_file = ""            # Path to conversation history file
     overwrite_history = false    # Whether to overwrite existing history file
+    model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
 
 Transport Modes:
     - HTTP: Wrapper connects to independently-running MCP servers via HTTP.
@@ -41,12 +42,19 @@ class WrapperConfig:
         port: TCP port the wrapper's API server listens on
         history_file: Optional path to load/save conversation history
         overwrite_history: If true, overwrite history file on exit instead of error
+        model: Dictionary with model settings (default model name, temperature, etc.)
     """
     transport: str = "HTTP"
     host: str = "0.0.0.0"
     port: int = 8000
     history_file: str = ""
     overwrite_history: bool = False
+    model: dict = None
+
+    def __post_init__(self):
+        """Set default model configuration if not provided."""
+        if self.model is None:
+            self.model = {"default": "llama3.2:3b", "temperature": 0.2}
 
     @classmethod
     def from_toml(cls, config_path: str):

@@ -11,10 +11,12 @@ echo
 curl -X POST "$HOST/chat" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Hello! Can you tell me a fun fact about programming?",
-    "model": "llama3.2:3b",
+    "message": "Hello! How are you doing?",
+    "model": "gemma3:1b",
     "mcp_server": ""
   }' | jq '.'
+
+# "model": "llama3.2:3b",
 
 echo
 echo "Demo complete!"

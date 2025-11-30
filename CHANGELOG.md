@@ -16,6 +16,43 @@ The following changes are planned for the next major release:
 - **Cleaner separation of concerns**: Wrapper focuses on runtime state, not configuration management
 - **Breaking change**: This changes how the chat endpoint interacts with MCP servers
 
+## [0.4.3] - 2025-11-30
+
+### Added
+- **Temperature parameter support**: Control LLM response randomness/creativity
+  - Optional `temperature` parameter in `ChatRequest` (0.0-2.0)
+  - Configuration support in `wrapper_config.toml` with inline table: `model = { default = "llama3.2:3b", temperature = 0.2 }`
+  - Default temperature of 0.2 for consistent, deterministic results
+  - Priority: Request parameter > Config file > Default (0.2)
+- **Performance metrics in API responses**: Chat responses now include detailed metrics
+  - Token counts: `prompt_tokens`, `completion_tokens`
+  - Timing: `prompt_eval_duration_s`, `eval_duration_s`, `total_duration_s`
+  - Performance: `tokens_per_second` (TPS)
+  - New `metrics` field in `ChatResponse` model
+- **GET /models endpoint**: List available Ollama models with details
+  - Returns model name, size, family, parameter count, and quantization level
+  - Enables dynamic model discovery for client applications
+  - Useful for validation and UI/UX (populate model selection dropdowns)
+- **Temperature test demo scripts**: Compare temperature effects with performance metrics
+  - Basic version (`temperature_test.*`): Single model, multiple temperatures
+  - Enhanced version (`temperature_test_multi_model.*`): Multiple models, interactive selection
+  - Tabular output showing TPS, token counts, and timing for each temperature
+  - Side-by-side comparison of responses at different temperatures
+  - Cross-model performance comparison
+  - Available in both shell (`.sh`) and Python (`.py`) versions
+
+### Changed
+- **Model configuration**: Now uses inline table format in TOML for better organization
+- **All Ollama chat calls**: Now use configured temperature instead of hardcoded values
+- **ChatResponse model**: Added optional `metrics` field containing Ollama response metrics
+
+### Improved
+- More predictable and consistent LLM responses with low default temperature
+- Flexible temperature control per request while maintaining sensible defaults
+- Better code organization for future model-related parameters
+- Enhanced observability with performance metrics for monitoring and optimization
+- Improved model discovery and selection capabilities
+
 ## [0.4.2] - 2025-11-30
 
 ### Added
@@ -150,7 +187,8 @@ The following changes are planned for the next major release:
 - `POST /save_history/{file_name}` - Save conversation history
 - `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
 
-[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.2...HEAD
+[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...v0.4.0
