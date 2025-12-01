@@ -140,7 +140,7 @@ class OllamaWrapper:
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.6.0",
+                "version": "0.6.2",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",

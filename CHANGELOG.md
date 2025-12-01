@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2025-12-01
+
 ### Added
 - **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
   - Added `test_number` field to each test result in JSON output
@@ -24,6 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Averages (TPS and tokens)
     - Response Lengths (min/max/avg)
   - Summary formatting is now consistent between console output and Markdown export
+- **Demo configuration (`demos/demo_config.py`):**
+  - Added robust config parsing with regex support
+  - UTF-8 BOM encoding support
+  - Comment handling in config files
+- **History endpoint (`ollama_wrapper.py`):**
+  - Added `GET /history/clear` endpoint to reset conversation history
+
+### Changed
+- **History endpoints changed from POST to GET** (idempotent operations):
+  - `POST /load_history/{file_name}` → `GET /history/load/{file_name}`
+  - `POST /save_history/{file_name}` → `GET /history/save/{file_name}`
+  - `POST /overwrite_history/{file_name}` → `GET /history/overwrite/{file_name}`
 
 ### Fixed
 - **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
