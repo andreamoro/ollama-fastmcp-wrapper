@@ -4,6 +4,7 @@ Reads settings from wrapper_config.toml
 """
 
 import os
+import re
 
 def get_wrapper_url():
     """Read wrapper host and port from wrapper_config.toml"""
@@ -16,20 +17,33 @@ def get_wrapper_url():
         host = "localhost"  # Default
         port = 8000  # Default
 
-        with open(config_file, 'r') as f:
+        pattern = re.compile(
+            r'^\s*(host|port)\s*=\s*["\']?([^"\']+)["\']?',
+            re.IGNORECASE
+        )
+
+        with open(config_file, 'r', encoding='utf-8-sig') as f:
             for line in f:
-                line = line.strip()
-                if line.startswith('host ='):
-                    # Extract host value: host = "0.0.0.0" -> 0.0.0.0
-                    host_value = line.split('=', 1)[1].strip().strip('"').strip("'")
-                    # If listening on 0.0.0.0, connect to localhost
-                    if host_value == "0.0.0.0":
-                        host = "localhost"
-                    else:
-                        host = host_value
-                elif line.startswith('port ='):
-                    # Extract port value: port = 8000 -> 8000
-                    port = int(line.split('=', 1)[1].strip())
+                clean = line.split('#', 1)[0].strip()  # remove comments
+                match = pattern.match(clean)
+                if not match:
+                    continue
+
+                key, value = match.groups()
+                key = key.lower()
+                value = value.strip()
+
+                if key == "host":
+                    host = "localhost" if value == "0.0.0.0" else value
+
+                elif key == "port":
+                    # Ensure it's numeric
+                    if not value.isdigit():
+                        raise ValueError(f"Invalid port number: {value}")
+                    port = int(value)
+
+        if host is None or port is None:
+            raise ValueError("Missing host or port in config")
 
         return f"http://{host}:{port}"
     except Exception as e:
