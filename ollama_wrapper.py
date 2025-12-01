@@ -140,13 +140,13 @@ class OllamaWrapper:
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.5.1",
+                "version": "0.6.0",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
                     "GET /servers": "List available FastMCP servers from config",
+                    "GET /servers/{server_name}/tools": "List available tools for a specific MCP server",
                     "GET /models": "List installed Ollama models with details",
-                    "GET /list_tools?server_name=<name>": "List available tools for a specific MCP server",
                     "GET /history": "Get current conversation history",
                     "POST /connect/{server_name}": "Connect to an MCP server",
                     "POST /disconnect/{server_name}": "Disconnect from an MCP server",
@@ -164,15 +164,15 @@ class OllamaWrapper:
                 "documentation": "https://github.com/your-repo/ollama-fastmcp-wrapper"
             }
 
-        @self.app.get("/list_tools")
-        async def list_tools(server_name: str):
-            """List available tools for a given FastMCP server"""
-            return await self._list_tools(server_name=server_name)
-
         @self.app.get("/servers")
         async def list_servers() -> dict:
             """List available FastMCP servers"""
             return await self._list_servers()
+
+        @self.app.get("/servers/{server_name}/tools")
+        async def list_server_tools(server_name: str):
+            """List available tools for a given FastMCP server"""
+            return await self._list_tools(server_name=server_name)
 
         @self.app.get("/models")
         async def list_models() -> dict:

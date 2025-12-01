@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-01
+
+### ⚠️ BREAKING CHANGES
+
+**RESTful API Endpoint Restructuring**
+
+The `/list_tools` endpoint has been replaced with a more RESTful structure.
+
+**Migration Guide:**
+```bash
+# OLD (v0.5.x and earlier)
+curl http://localhost:8000/list_tools?server_name=math
+
+# NEW (v0.6.0+)
+curl http://localhost:8000/servers/math/tools
+```
+
+### Changed
+- **Tools endpoint**: `GET /list_tools?server_name={name}` → `GET /servers/{server_name}/tools`
+  - More RESTful and follows standard API design patterns
+  - Clearer resource hierarchy: servers contain tools
+
+### Added
+- **Root endpoint**: `GET /` returns comprehensive API documentation
+  - Lists all available endpoints with descriptions
+  - Documents chat parameters
+  - Self-documenting API for easier discovery
+
 ## [0.5.1] - 2025-12-01
 
 ### Added
@@ -228,7 +256,7 @@ curl -X POST http://localhost:8000/chat -d '{
 - `GET /servers` - List available FastMCP servers
 - `POST /connect/{server_name}` - Connect to an MCP server
 - `POST /disconnect/{server_name}` - Disconnect from an MCP server
-- `GET /list_tools?server_name={name}` - List tools for a server
+- `GET /list_tools?server_name={name}` - List tools for a server (deprecated in v0.6.0, use `GET /servers/{server_name}/tools`)
 - `POST /chat` - Send chat requests with optional tool usage
 - `POST /save_history/{file_name}` - Save conversation history
 - `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
