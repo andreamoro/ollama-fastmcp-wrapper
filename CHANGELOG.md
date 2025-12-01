@@ -7,33 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.6.0] - 2025-12-01
+## [0.6.1] - 2025-12-01
 
 ### ⚠️ BREAKING CHANGES
 
-**RESTful API Endpoint Restructuring**
+**RESTful API Endpoint Restructuring - Complete**
 
-The `/list_tools` endpoint has been replaced with a more RESTful structure.
+All server-related endpoints have been restructured to follow RESTful resource hierarchy.
 
 **Migration Guide:**
 ```bash
 # OLD (v0.5.x and earlier)
 curl http://localhost:8000/list_tools?server_name=math
+curl -X POST http://localhost:8000/connect/math
+curl -X POST http://localhost:8000/disconnect/math
 
-# NEW (v0.6.0+)
+# NEW (v0.6.1+)
 curl http://localhost:8000/servers/math/tools
+curl -X POST http://localhost:8000/servers/math/connect
+curl -X POST http://localhost:8000/servers/math/disconnect
 ```
 
 ### Changed
-- **Tools endpoint**: `GET /list_tools?server_name={name}` → `GET /servers/{server_name}/tools`
+- **Server-related endpoints restructured** to follow RESTful resource hierarchy:
+  - `GET /list_tools?server_name={name}` → `GET /servers/{server_name}/tools`
+  - `POST /connect/{server_name}` → `POST /servers/{server_name}/connect`
+  - `POST /disconnect/{server_name}` → `POST /servers/{server_name}/disconnect`
   - More RESTful and follows standard API design patterns
-  - Clearer resource hierarchy: servers contain tools
+  - Clearer resource hierarchy: all server operations are under `/servers/{server_name}/...`
 
 ### Added
 - **Root endpoint**: `GET /` returns comprehensive API documentation
   - Lists all available endpoints with descriptions
   - Documents chat parameters
   - Self-documenting API for easier discovery
+  - Organized by resource groups for better clarity
+
+## [0.6.0] - 2025-12-01
+
+### Deprecated
+This version was immediately superseded by 0.6.1 which completed the RESTful restructuring.
 
 ## [0.5.1] - 2025-12-01
 

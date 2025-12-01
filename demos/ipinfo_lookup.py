@@ -15,7 +15,7 @@ def main():
     print()
     
     print("Step 1: Connecting to ipinfo server...")
-    response = requests.post(f"{HOST}/connect/ipinfo")
+    response = requests.post(f"{HOST}/servers/ipinfo/connect")
     print(json.dumps(response.json(), indent=2))
     print()
     

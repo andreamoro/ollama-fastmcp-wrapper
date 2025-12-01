@@ -98,17 +98,26 @@ python ollama_wrapper.py
 
 Endpoints:
 
-- `GET /` → Root endpoint listing all available API endpoints with documentation
-- `GET /servers` → List available FastMCP servers from config
-- `GET /servers/{server_name}/tools` → List available tools for a specific MCP server
-- `GET /models` → List available Ollama models with details (name, size, family, parameters)
-- `GET /history` → Get current conversation history
-- `POST /connect/{server_name}` → Connect a FastMCP server
-- `POST /disconnect/{server_name}` → Disconnect a server
+**Root:**
+- `GET /` → API documentation and endpoint listing
+
+**Chat:**
 - `POST /chat` → Send a chat request (with optional MCP tools)
+
+**History:**
+- `GET /history` → Get current conversation history
 - `POST /load_history/{file_name}` → Load conversation history from disk
-- `POST /save_history/{file_name}` → Persists the conversation history on disk
-- `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file with the ongoing conversation
+- `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file
+- `POST /save_history/{file_name}` → Save conversation history to disk
+
+**Models:**
+- `GET /models` → List installed Ollama models with details
+
+**Servers:**
+- `GET /servers` → List available FastMCP servers from config
+- `POST /servers/{server_name}/connect` → Connect to an MCP server
+- `POST /servers/{server_name}/disconnect` → Disconnect from an MCP server
+- `GET /servers/{server_name}/tools` → List available tools for a specific MCP server
 
 #### Usage Scenarios
 
@@ -117,7 +126,7 @@ Endpoints:
 # ⚠️ IMPORTANT (v0.5.0+): Servers must be explicitly connected before use
 
 # Step 1: Connect to MCP server
-curl -X POST http://localhost:8000/connect/math
+curl -X POST http://localhost:8000/servers/math/connect
 
 # Step 2: Chat with tools
 curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
@@ -127,7 +136,7 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 }'
 
 # If you forget to connect first, you'll get a clear error:
-# HTTP 400: Server 'math' is not connected. Please connect first using POST /connect/math
+# HTTP 400: Server 'math' is not connected. Please connect first using POST /servers/math/connect
 ```
 
 **Scenario 2: Pure Chat (no tools)**
@@ -210,7 +219,7 @@ curl http://localhost:8000/models
 curl http://localhost:8000/servers
 
 # Disconnect a server
-curl -X POST http://localhost:8000/disconnect/math
+curl -X POST http://localhost:8000/servers/math/disconnect
 
 # Get conversation history
 curl http://localhost:8000/history

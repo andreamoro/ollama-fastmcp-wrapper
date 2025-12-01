@@ -15,7 +15,7 @@ def main():
     print()
     
     print("Step 1: Connecting to math server...")
-    response = requests.post(f"{HOST}/connect/math")
+    response = requests.post(f"{HOST}/servers/math/connect")
     print(json.dumps(response.json(), indent=2))
     print()
     

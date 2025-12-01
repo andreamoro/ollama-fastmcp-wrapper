@@ -144,15 +144,23 @@ class OllamaWrapper:
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
-                    "GET /servers": "List available FastMCP servers from config",
-                    "GET /servers/{server_name}/tools": "List available tools for a specific MCP server",
-                    "GET /models": "List installed Ollama models with details",
-                    "GET /history": "Get current conversation history",
-                    "POST /connect/{server_name}": "Connect to an MCP server",
-                    "POST /disconnect/{server_name}": "Disconnect from an MCP server",
+
+                    "# Chat": "",
                     "POST /chat": "Send a chat message (with optional MCP tools)",
+
+                    "# History": "",
+                    "GET /history": "Get current conversation history",
                     "POST /load_history/{file_name}": "Load conversation history from file",
-                    "POST /save_history/{file_name}": "Save conversation history to file"
+                    "POST /save_history/{file_name}": "Save conversation history to file",
+
+                    "# Models": "",
+                    "GET /models": "List installed Ollama models with details",
+
+                    "# Servers": "",
+                    "GET /servers": "List available FastMCP servers from config",
+                    "POST /servers/{server_name}/connect": "Connect to an MCP server",
+                    "POST /servers/{server_name}/disconnect": "Disconnect from an MCP server",
+                    "GET /servers/{server_name}/tools": "List available tools for a specific MCP server"
                 },
                 "chat_parameters": {
                     "message": "string (required) - The message to send",
@@ -184,12 +192,12 @@ class OllamaWrapper:
             """Get current conversation history"""
             return await self._get_history()
 
-        @self.app.post("/connect/{server_name}")
+        @self.app.post("/servers/{server_name}/connect")
         async def connect_server(server_name: str) -> dict:
             """Connect a FastMCP server."""
             return await self._connect_server(server_name)
 
-        @self.app.post("/disconnect/{server_name}")
+        @self.app.post("/servers/{server_name}/disconnect")
         async def disconnect_server(server_name: str) -> dict:
             """Disconnect from a FastMCP server."""
             return await self._disconnect_server(server_name)

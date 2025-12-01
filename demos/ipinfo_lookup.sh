@@ -8,7 +8,7 @@ echo "=== IPInfo Lookup Demo ==="
 echo
 
 echo "Step 1: Connecting to ipinfo server..."
-curl -X POST "$HOST/connect/ipinfo" | jq '.'
+curl -X POST "$HOST/servers/ipinfo" | jq '.'/connect
 echo
 
 echo "Step 2: Looking up a specific IP address..."

@@ -8,7 +8,7 @@ echo "=== Math Operations Demo ==="
 echo
 
 echo "Step 1: Connecting to math server..."
-curl -X POST "$HOST/connect/math" | jq '.'
+curl -X POST "$HOST/servers/math" | jq '.'/connect
 echo
 
 echo "Step 2: Performing math operations..."
