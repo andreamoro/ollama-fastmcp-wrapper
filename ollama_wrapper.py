@@ -42,6 +42,7 @@ class ChatRequest(BaseModel):
     model: str = "llama3.2:3b"
     mcp_server: Optional[str] = ""
     temperature: Optional[float] = None  # Optional temperature override (0.0-2.0)
+    stateless: bool = False  # If True, don't persist message to history (one-shot mode)
 
 class ChatResponse(BaseModel):
     response: str
@@ -434,7 +435,18 @@ class OllamaWrapper:
             request_tools = fastmcp_tools.get(request.mcp_server, [])
 
         tools_used = []
-        self.message_history.add("user", request.message)
+
+        # Build message list based on stateless mode
+        if request.stateless:
+            # One-shot mode: only system prompt + current message
+            messages = [
+                {"role": "system", "content": self.message_history.messages[0]["content"]},
+                {"role": "user", "content": request.message}
+            ]
+        else:
+            # Conversational mode: use full history
+            self.message_history.add("user", request.message)
+            messages = self.message_history.get()
 
         # Determine temperature: request parameter > config > default
         temperature = request.temperature if request.temperature is not None else self.config_temperature
@@ -445,7 +457,7 @@ class OllamaWrapper:
             if len(request_tools) > 0:
                 response = ollama.chat(
                     model=request.model,
-                    messages=self.message_history.get(),
+                    messages=messages,
                     tools=request_tools,
                     options={'temperature': temperature}
                 )
@@ -489,8 +501,9 @@ class OllamaWrapper:
                     )
 
                     # Response with tools
-                    self.message_history.add("assistant", response_w_tools['message']['content'])
-                    self.__auto_save_history()  # Auto-save after response
+                    if not request.stateless:
+                        self.message_history.add("assistant", response_w_tools['message']['content'])
+                        self.__auto_save_history()  # Auto-save after response
 
                     # Extract metrics from response
                     metrics = self._extract_metrics(response_w_tools)
@@ -502,8 +515,9 @@ class OllamaWrapper:
                     )
                 else:
                     # Direct response, no tools used
-                    self.message_history.add("assistant", response['message']['content'])
-                    self.__auto_save_history()  # Auto-save after response
+                    if not request.stateless:
+                        self.message_history.add("assistant", response['message']['content'])
+                        self.__auto_save_history()  # Auto-save after response
 
                     # Extract metrics from response
                     metrics = self._extract_metrics(response)
@@ -517,11 +531,12 @@ class OllamaWrapper:
                 # No FastMCP tools available, just return Ollama response
                 response = ollama.chat(
                     model=request.model,
-                    messages=self.message_history.get(),
+                    messages=messages,
                     options={'temperature': temperature}
                 )
-                self.message_history.add("assistant", response['message']['content'])
-                self.__auto_save_history()  # Auto-save after response
+                if not request.stateless:
+                    self.message_history.add("assistant", response['message']['content'])
+                    self.__auto_save_history()  # Auto-save after response
 
                 # Extract metrics from response
                 metrics = self._extract_metrics(response)

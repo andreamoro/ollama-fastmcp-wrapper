@@ -47,7 +47,8 @@ def test_temperature_model(model, temp, description, prompt=None):
     payload = {
         "message": prompt,
         "model": model,
-        "mcp_server": ""
+        "mcp_server": "",
+        "stateless": True  # Use stateless mode for independent testing
     }
 
     if temp is not None:

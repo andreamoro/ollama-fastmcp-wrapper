@@ -139,7 +139,22 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 # No tools are sent to Ollama, faster response
 ```
 
-**Scenario 3: Custom Temperature for Creative Tasks**
+**Scenario 3: Stateless Mode (One-Shot Requests)**
+```bash
+# Use stateless mode to prevent message history accumulation
+curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
+  "message": "What is 2+2?",
+  "model": "llama3.2:3b",
+  "mcp_server": "",
+  "stateless": true
+}'
+# Message is not added to history - ideal for:
+#   - Independent tests (temperature comparisons)
+#   - Batch processing without context contamination
+#   - Preventing performance degradation from large histories
+```
+
+**Scenario 4: Custom Temperature for Creative Tasks**
 ```bash
 # Override default temperature for more creative responses
 curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
@@ -165,7 +180,7 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 # }
 ```
 
-**Scenario 4: Discovering Available Models**
+**Scenario 5: Discovering Available Models**
 ```bash
 # List all installed Ollama models
 curl http://localhost:8000/models
@@ -186,7 +201,7 @@ curl http://localhost:8000/models
 # }
 ```
 
-**Scenario 5: Managing Server Connections**
+**Scenario 6: Managing Server Connections**
 ```bash
 # List available servers
 curl http://localhost:8000/servers
