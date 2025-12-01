@@ -208,6 +208,32 @@ python demos/temperature_test_multi_model.py demos/prompts/myfile.txt    # Relat
 - Build a database of model performance benchmarks
 - Document model selection decisions for projects
 
+**Running long tests without hangups:**
+
+For extensive multi-model tests that may take hours, use `nohup` to prevent terminal disconnection from interrupting the test:
+
+```bash
+# Run in background, immune to hangups
+nohup python demos/temperature_test_multi_model.py &
+
+# Or with uv
+nohup uv run python demos/temperature_test_multi_model.py &
+
+# Monitor progress in real-time
+tail -f nohup.out
+
+# Check if still running
+ps aux | grep temperature_test_multi_model
+```
+
+**Benefits:**
+- Test continues even if SSH connection drops
+- Safe to close terminal or log out
+- Results automatically saved incrementally (survives interruptions)
+- Output captured in `nohup.out`
+
+**Note:** Results are saved after each individual test completes, so even if the process is interrupted, partial results are preserved in the JSON output file.
+
 ---
 
 ## Python Dependencies
