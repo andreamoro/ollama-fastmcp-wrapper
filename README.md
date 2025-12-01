@@ -98,12 +98,14 @@ python ollama_wrapper.py
 
 Endpoints:
 
+- `GET /` → Root endpoint listing all available API endpoints with documentation
+- `GET /servers` → List available FastMCP servers from config
+- `GET /servers/{server_name}/tools` → List available tools for a specific MCP server
 - `GET /models` → List available Ollama models with details (name, size, family, parameters)
-- `GET /servers` → List connected servers with their tools and available API endpoints
+- `GET /history` → Get current conversation history
 - `POST /connect/{server_name}` → Connect a FastMCP server
 - `POST /disconnect/{server_name}` → Disconnect a server
-- `POST /chat` → Send a chat request
-- `GET /history` → Get current conversation history
+- `POST /chat` → Send a chat request (with optional MCP tools)
 - `POST /load_history/{file_name}` → Load conversation history from disk
 - `POST /save_history/{file_name}` → Persists the conversation history on disk
 - `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file with the ongoing conversation
