@@ -6,8 +6,9 @@ This demonstrates connecting to a server and using its tools
 
 import requests
 import json
+from demo_config import API_URL
 
-HOST = "http://localhost:8000"
+HOST = API_URL
 
 def main():
     print("=== Math Operations Demo ===")

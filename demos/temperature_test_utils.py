@@ -8,9 +8,12 @@ import json
 import sys
 import os
 from datetime import datetime
+from demo_config import API_URL
 
-HOST = "http://localhost:8000"
 DEFAULT_PROMPT = "Explain what a binary search algorithm does in one sentence."
+
+# Use API_URL from shared config
+HOST = API_URL
 
 def get_config_temperature():
     """Read default temperature from wrapper_config.toml"""

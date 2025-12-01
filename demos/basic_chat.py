@@ -7,8 +7,9 @@ This demonstrates pure Ollama chat without any tool usage
 import requests
 import json
 import timeit
+from demo_config import API_URL
 
-HOST = "http://localhost:8000"
+HOST = API_URL
 
 def main():
     print("=== Basic Chat Demo ===")

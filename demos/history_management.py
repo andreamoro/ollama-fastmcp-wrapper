@@ -6,8 +6,9 @@ This demonstrates conversation persistence
 
 import requests
 import json
+from demo_config import API_URL
 
-HOST = "http://localhost:8000"
+HOST = API_URL
 HISTORY_FILE = "demo_conversation.json"
 
 def main():

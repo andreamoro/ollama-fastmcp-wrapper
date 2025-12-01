@@ -6,8 +6,9 @@ This demonstrates server lifecycle management
 
 import requests
 import json
+from demo_config import API_URL
 
-HOST = "http://localhost:8000"
+HOST = API_URL
 
 def main():
     print("=== Server Management Demo ===")

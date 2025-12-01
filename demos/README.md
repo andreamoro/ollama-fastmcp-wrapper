@@ -4,20 +4,14 @@ This directory contains demonstration scripts showing how to use the Ollama-Fast
 
 ## Prerequisites
 
-1. **Start the wrapper in API mode:**
-   ```bash
-   python ollama_wrapper.py api
-   ```
-
-2. **Ensure Ollama is running:**
+1. **Ensure Ollama is running:**
    ```bash
    ollama serve
    ```
 
-3. **For IPInfo demos**, create `mcp_servers/mcp_tokens.toml`:
+2. **Start the wrapper in API mode:**
    ```bash
-   cp mcp_servers/mcp_tokens.toml.example mcp_servers/mcp_tokens.toml
-   # Edit and add your IPInfo token
+   python ollama_wrapper.py api
    ```
 
 ## Available Demos
@@ -267,8 +261,9 @@ brew install jq
 
 ## Notes
 
-- All demos assume the wrapper is running on `http://localhost:8000`
-- Modify the `HOST` variable in each script if using a different address
+- **Python demos automatically read configuration** from `wrapper_config.toml` (host and port)
+- Shell demos assume the wrapper is running on `http://localhost:8000`
+  - Modify the `HOST` variable in shell scripts if using a different address
 - The demos will create a `demo_conversation.json` file in the current directory
 - Each demo is self-contained and can be run independently
 - Check the wrapper logs for detailed server connection information
