@@ -87,8 +87,8 @@ def calculate_summary_stats(results):
 
     return summary
 
-def run_tests(selected_models, selected_temps, prompt):
-    """Execute all temperature tests and return results with metadata"""
+def run_tests(selected_models, selected_temps, prompt, output_filename, config_temp):
+    """Execute all temperature tests with incremental saving to prevent data loss"""
     start_time = datetime.now()
     start_timestamp = start_time.isoformat()
 
@@ -104,6 +104,24 @@ def run_tests(selected_models, selected_temps, prompt):
             result = test_temperature_model(model, temp, desc, prompt)
             if result:
                 all_results.append(result)
+
+                # Save after each test to prevent data loss
+                partial_results_data = {
+                    "test_metadata": {
+                        "start_timestamp": start_timestamp,
+                        "end_timestamp": datetime.now().isoformat(),
+                        "total_duration_s": (datetime.now() - start_time).total_seconds(),
+                        "total_duration_readable": format_duration((datetime.now() - start_time).total_seconds()),
+                        "prompt": prompt,
+                        "models_tested": selected_models,
+                        "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
+                        "total_tests": len(all_results),
+                        "status": "in_progress" if current_test < total_tests else "completed"
+                    },
+                    "results": all_results,
+                    "summary": calculate_summary_stats(all_results)
+                }
+                save_results_to_json(partial_results_data, output_filename)
 
     end_time = datetime.now()
     end_timestamp = end_time.isoformat()
@@ -275,6 +293,7 @@ def main():
     output_filename = get_output_filename()
 
     # Display test configuration
+    config_temp = get_config_temperature()
     print(f"\n{'='*120}")
     print("TEST CONFIGURATION")
     print(f"{'='*120}")
@@ -282,17 +301,18 @@ def main():
     print(f"Temperatures: {', '.join(str(t[0] if t[0] is not None else 'default') for t in selected_temps)}")
     print(f"Prompt: {prompt[:80]}..." if len(prompt) > 80 else f"Prompt: {prompt}")
     print(f"Output file: {output_filename}")
+    print(f"{'='*120}")
+    print("Note: Results are saved after each test to prevent data loss on interruption.")
     print(f"{'='*120}\n")
 
-    # Run all tests
-    test_results = run_tests(selected_models, selected_temps, prompt)
+    # Run all tests (with incremental saving)
+    test_results = run_tests(selected_models, selected_temps, prompt, output_filename, config_temp)
 
     if not test_results['results']:
         print("\nNo results collected. Please check if the API is running.")
         sys.exit(1)
 
-    # Build results data structure
-    config_temp = get_config_temperature()
+    # Build final results data structure
     results_data = {
         "test_metadata": {
             "start_timestamp": test_results['start_timestamp'],
@@ -302,13 +322,14 @@ def main():
             "prompt": prompt,
             "models_tested": selected_models,
             "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
-            "total_tests": len(test_results['results'])
+            "total_tests": len(test_results['results']),
+            "status": "completed"
         },
         "results": test_results['results'],
         "summary": calculate_summary_stats(test_results['results'])
     }
 
-    # Save results to files
+    # Final save with completed status and markdown export
     save_results_to_json(results_data, output_filename)
     export_results_to_markdown(results_data, output_filename)
 
@@ -327,4 +348,7 @@ def main():
     print("Demo complete!")
 
 if __name__ == "__main__":
+    # Assuming you have a project with a virtual environment managed by uv
+    # You can run this script in the background using:
+    # nohup uv run python your_long_running_script.py &
     main()
