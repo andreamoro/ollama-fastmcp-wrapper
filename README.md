@@ -141,17 +141,18 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 
 **Scenario 3: Stateless Mode (One-Shot Requests)**
 ```bash
-# Use stateless mode to prevent message history accumulation
+# Use stateless mode for independent, single-turn interactions
 curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "What is 2+2?",
+  "message": "Translate this to French: Hello world",
   "model": "llama3.2:3b",
   "mcp_server": "",
   "stateless": true
 }'
 # Message is not added to history - ideal for:
-#   - Independent tests (temperature comparisons)
-#   - Batch processing without context contamination
-#   - Preventing performance degradation from large histories
+#   - API integrations requiring stateless behavior
+#   - Batch processing multiple independent requests
+#   - Microservices that don't need conversation context
+#   - Parallel request processing without interference
 ```
 
 **Scenario 4: Custom Temperature for Creative Tasks**

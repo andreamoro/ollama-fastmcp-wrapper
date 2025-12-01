@@ -12,21 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Stateless mode for one-shot requests**: New `stateless` parameter in `ChatRequest`
   - When `stateless: true`, messages are not added to conversation history
-  - Prevents context contamination in independent tests
-  - Solves performance degradation in multi-test scenarios (temperature tests)
+  - Useful for independent, single-turn interactions without context accumulation
+  - Ideal for batch processing, API integrations, or stateless microservices
   - Default: `false` (preserves conversational behavior)
-  - Example: `{"message": "test", "model": "llama3.2:3b", "stateless": true}`
-- **Temperature test improvements**: All temperature tests now use `stateless: true` for independent results
+  - Example: `{"message": "Analyze this text", "model": "llama3.2:3b", "stateless": true}`
 
 ### Changed
 - **Message history behavior**: Chat endpoint now supports both conversational and stateless modes
-  - Stateless mode: Only system prompt + current message sent to Ollama
+  - Stateless mode: Only system prompt + current message sent to Ollama (no history persistence)
   - Conversational mode: Full message history preserved (default)
   - Auto-save only triggered in conversational mode
-
-### Fixed
-- **Performance degradation in temperature tests**: Tests no longer accumulate context, maintaining consistent speed
-- **Context contamination**: Each stateless request is truly independent
 
 ## [0.5.0] - 2025-11-30
 
