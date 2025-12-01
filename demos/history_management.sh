@@ -33,7 +33,7 @@ curl -X GET "$HOST/history" | jq '.'
 echo
 
 echo "Step 4: Saving conversation history..."
-curl -X POST "$HOST/save_history/$HISTORY_FILE" | jq '.'
+curl "$HOST/history/save/$HISTORY_FILE" | jq '.'
 echo
 
 echo "Saved conversation to: $HISTORY_FILE"

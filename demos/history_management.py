@@ -45,7 +45,7 @@ def main():
     print()
     
     print("Step 4: Saving conversation history...")
-    response = requests.post(f"{HOST}/save_history/{HISTORY_FILE}")
+    response = requests.get(f"{HOST}/history/save/{HISTORY_FILE}")
     print(json.dumps(response.json(), indent=2))
     print()
     

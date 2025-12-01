@@ -150,8 +150,10 @@ class OllamaWrapper:
 
                     "# History": "",
                     "GET /history": "Get current conversation history",
-                    "POST /load_history/{file_name}": "Load conversation history from file",
-                    "POST /save_history/{file_name}": "Save conversation history to file",
+                    "GET /history/clear": "Clear the current conversation history",
+                    "GET /history/load/{file_name}": "Load conversation history from file",
+                    "GET /history/overwrite/{file_name}": "Overwrite existing conversation file",
+                    "GET /history/save/{file_name}": "Save conversation history to file",
 
                     "# Models": "",
                     "GET /models": "List installed Ollama models with details",
@@ -206,20 +208,26 @@ class OllamaWrapper:
         async def chat(request: ChatRequest):
             return await self.chat(request)
 
-        @self.app.post("/load_history/{file_name}")
+        @self.app.get("/history/load/{file_name}")
         async def load_history(file_name: str):
             """Load previously saved message history from the specified file."""
             return await self._load_history(file_name)
 
-        @self.app.post("/save_history/{file_name}")
+        @self.app.get("/history/save/{file_name}")
         async def save_history(file_name: str):
             """Save current message history to the specified file."""
             return await self._save_history(file_name, overwrite=False)
 
-        @self.app.post("/overwrite_history/{file_name}")
+        @self.app.get("/history/overwrite/{file_name}")
         async def overwrite_history(file_name: str):
             """Save current message history overwriting the specified file."""
             return await self._save_history(file_name, overwrite=True)
+
+        @self.app.get("/history/clear")
+        async def clear_history():
+            """Clear the current conversation history."""
+            self.message_history.reset()
+            return {"status": "success", "message": "Conversation history cleared"}
 
     @staticmethod
     @asynccontextmanager
