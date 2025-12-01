@@ -186,11 +186,12 @@ python demos/temperature_test_multi_model.py demos/prompts/myfile.txt    # Relat
   1. Results grouped by model (see each model across all temperatures)
   2. Cross-model comparison (compare all models at each temperature)
   3. Full responses for detailed analysis
-- **Summary statistics**: Fastest model, average TPS, response length variance
+- **Summary statistics**: Fastest model with temperature, average TPS, response length variance
 - **Model insights**: Compare small vs. large models, different families (llama, qwen, phi3, etc.)
 - Uses the `/models` API endpoint to dynamically discover available models
 
 **Output Files:**
+Results are saved in `demos/test_results/`:
 - `YYYYMMDD_HHMMSS_multi_test_comparison.json` - Complete test data in JSON format
 - `YYYYMMDD_HHMMSS_multi_test_comparison.md` - Human-readable Markdown report
 

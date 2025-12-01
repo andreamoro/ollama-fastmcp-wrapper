@@ -106,9 +106,10 @@ Endpoints:
 
 **History:**
 - `GET /history` → Get current conversation history
-- `POST /load_history/{file_name}` → Load conversation history from disk
-- `POST /overwrite_history/{file_name}` → Overwrite an existing conversation file
-- `POST /save_history/{file_name}` → Save conversation history to disk
+- `GET /history/clear` → Clear the current conversation history
+- `GET /history/load/{file_name}` → Load conversation history from disk
+- `GET /history/overwrite/{file_name}` → Overwrite an existing conversation file
+- `GET /history/save/{file_name}` → Save conversation history to disk
 
 **Models:**
 - `GET /models` → List installed Ollama models with details

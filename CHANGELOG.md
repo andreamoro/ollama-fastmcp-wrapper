@@ -7,16 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Added `test_number` field to each test result in JSON output
+  - Added `elapsed_time_readable` field to each test result for human-readable timing
+  - Enhanced summary statistics with detailed timing for the fastest model:
+    - Elapsed time (both seconds and readable format)
+    - Total duration (both seconds and readable format)
+    - Completion tokens count
+    - TPS (tokens per second)
+- **Temperature test utilities (`demos/temperature_test_utils.py`):**
+  - Added centralized `format_summary_display()` function to avoid code duplication
+  - Enhanced Markdown export with `test_number` column in summary table
+  - Improved summary statistics section with organized subsections:
+    - Fastest Model (with all timing details)
+    - Averages (TPS and tokens)
+    - Response Lengths (min/max/avg)
+  - Summary formatting is now consistent between console output and Markdown export
+
+### Fixed
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Fixed output directory path to save results to `demos/test_results/` instead of root `test_results/`
+  - Fixed summary statistics to include the temperature of the fastest model, not just the model name
+
 ## [0.6.1] - 2025-12-01
 
 ### ⚠️ BREAKING CHANGES
 
 **RESTful API Endpoint Restructuring - Complete**
 
-All server-related endpoints have been restructured to follow RESTful resource hierarchy.
+All server-related and history-related endpoints have been restructured to follow RESTful resource hierarchy.
 
 **Migration Guide:**
 ```bash
+# SERVER ENDPOINTS
 # OLD (v0.5.x and earlier)
 curl http://localhost:8000/list_tools?server_name=math
 curl -X POST http://localhost:8000/connect/math
@@ -26,6 +50,18 @@ curl -X POST http://localhost:8000/disconnect/math
 curl http://localhost:8000/servers/math/tools
 curl -X POST http://localhost:8000/servers/math/connect
 curl -X POST http://localhost:8000/servers/math/disconnect
+
+# HISTORY ENDPOINTS
+# OLD (v0.5.x and earlier)
+curl -X POST http://localhost:8000/load_history/conversation.json
+curl -X POST http://localhost:8000/save_history/conversation.json
+curl -X POST http://localhost:8000/overwrite_history/conversation.json
+
+# NEW (v0.6.1+)
+curl http://localhost:8000/history/load/conversation.json
+curl http://localhost:8000/history/save/conversation.json
+curl http://localhost:8000/history/overwrite/conversation.json
+curl http://localhost:8000/history/clear
 ```
 
 ### Changed
@@ -33,8 +69,13 @@ curl -X POST http://localhost:8000/servers/math/disconnect
   - `GET /list_tools?server_name={name}` → `GET /servers/{server_name}/tools`
   - `POST /connect/{server_name}` → `POST /servers/{server_name}/connect`
   - `POST /disconnect/{server_name}` → `POST /servers/{server_name}/disconnect`
-  - More RESTful and follows standard API design patterns
-  - Clearer resource hierarchy: all server operations are under `/servers/{server_name}/...`
+  - All server operations are under `/servers/{server_name}/...`
+- **History-related endpoints restructured** to follow RESTful resource hierarchy:
+  - `POST /load_history/{file_name}` → `GET /history/load/{file_name}`
+  - `POST /save_history/{file_name}` → `GET /history/save/{file_name}`
+  - `POST /overwrite_history/{file_name}` → `GET /history/overwrite/{file_name}`
+  - All history operations are under `/history/...`
+  - Changed from POST to GET (these are idempotent operations)
 
 ### Added
 - **Root endpoint**: `GET /` returns comprehensive API documentation
@@ -42,6 +83,9 @@ curl -X POST http://localhost:8000/servers/math/disconnect
   - Documents chat parameters
   - Self-documenting API for easier discovery
   - Organized by resource groups for better clarity
+- **History clear endpoint**: `GET /history/clear` to reset conversation history
+  - Clears the current conversation without deleting files
+  - Useful for starting fresh conversations
 
 ## [0.6.0] - 2025-12-01
 
@@ -84,201 +128,22 @@ curl -X POST http://localhost:8000/chat -d '{
 curl -X POST http://localhost:8000/connect/math  # Connect first!
 curl -X POST http://localhost:8000/chat -d '{
   "message": "Calculate 5 + 3",
-  "mcp_server": "math"  # Uses already-connected server
+  "mcp_server": "math"
 }'
 ```
 
-### Removed
-- **Auto-loading in chat endpoint**: `/chat` no longer automatically initializes MCP servers
-- **Implicit server connections**: All server connections must now be explicit via `/connect/{server_name}`
-
 ### Changed
-- **Chat endpoint behavior**: Now returns HTTP 400 error if `mcp_server` is specified but not connected
-  - Error message includes instructions to connect first: `POST /connect/{server_name}`
-- **Connection management**: Clear separation between connection lifecycle and chat operations
-
-### Improved
-- **Predictability**: Explicit connection state - no hidden auto-connections
-- **Error handling**: Clear error messages when trying to use non-connected servers
-- **Code clarity**: Chat logic no longer mixed with connection management
-- **Resource control**: Better control over when servers are initialized
-
-## [0.4.3] - 2025-11-30
+- **Chat endpoint no longer auto-connects** to MCP servers
+  - Explicit server connection required via `/connect/{server_name}` endpoint
+  - Cleaner separation of connection management from chat operations
+  - More predictable behavior and better error handling
+  - Prevents accidental server connections
 
 ### Added
-- **Temperature parameter support**: Control LLM response randomness/creativity
-  - Optional `temperature` parameter in `ChatRequest` (0.0-2.0)
-  - Configuration support in `wrapper_config.toml` with inline table: `model = { default = "llama3.2:3b", temperature = 0.2 }`
-  - Default temperature of 0.2 for consistent, deterministic results
-  - Priority: Request parameter > Config file > Default (0.2)
-- **Performance metrics in API responses**: Chat responses now include detailed metrics
-  - Token counts: `prompt_tokens`, `completion_tokens`
-  - Timing: `prompt_eval_duration_s`, `eval_duration_s`, `total_duration_s`
-  - Performance: `tokens_per_second` (TPS)
-  - New `metrics` field in `ChatResponse` model
-- **GET /models endpoint**: List available Ollama models with details
-  - Returns model name, size, family, parameter count, and quantization level
-  - Enables dynamic model discovery for client applications
-  - Useful for validation and UI/UX (populate model selection dropdowns)
-- **Temperature test demo scripts**: Compare temperature effects with performance metrics
-  - Basic version (`temperature_test.*`): Single model, multiple temperatures
-  - Enhanced version (`temperature_test_multi_model.*`): Multiple models, interactive selection
-  - Tabular output showing TPS, token counts, and timing for each temperature
-  - Side-by-side comparison of responses at different temperatures
-  - Cross-model performance comparison
-  - Available in both shell (`.sh`) and Python (`.py`) versions
+- **Explicit connection management**: Use `/connect/{server_name}` and `/disconnect/{server_name}`
+  - Better control over server lifecycle
+  - Clear separation between connection and chat operations
 
-### Changed
-- **Model configuration**: Now uses inline table format in TOML for better organization
-- **All Ollama chat calls**: Now use configured temperature instead of hardcoded values
-- **ChatResponse model**: Added optional `metrics` field containing Ollama response metrics
+## [0.4.0] - 2025-11-28
 
-### Improved
-- More predictable and consistent LLM responses with low default temperature
-- Flexible temperature control per request while maintaining sensible defaults
-- Better code organization for future model-related parameters
-- Enhanced observability with performance metrics for monitoring and optimization
-- Improved model discovery and selection capabilities
-
-## [0.4.2] - 2025-11-30
-
-### Added
-- **Token file configuration support**: MCP servers can now specify custom token files
-  - New `token_file` parameter in `MCPServerConfig` (defaults to "mcp_tokens.toml")
-  - `get_token_file_path()` method to retrieve the full path to token file
-  - Flexible token management for different servers
-
-### Changed
-- **IPInfo server**: Now uses token file from server configuration instead of hardcoded path
-- **Token file resolution**: Token files are resolved relative to `mcp_servers/` directory
-
-### Improved
-- More flexible token management allowing different servers to use different token files
-- Better separation between server configuration and token storage
-
-## [0.4.1] - 2025-11-29
-
-### Added
-- **Demo scripts directory** (`demos/`): Comprehensive usage examples
-  - Both shell (`.sh`) and Python (`.py`) versions of each demo
-  - `basic_chat` - Simple chat without tools
-  - `math_operations` - Using the math MCP server
-  - `ipinfo_lookup` - IP geolocation queries
-  - `server_management` - Connect/disconnect/list servers lifecycle
-  - `history_management` - Conversation persistence
-- **Demo documentation**: Detailed `demos/README.md` with prerequisites, usage, and troubleshooting
-
-### Changed
-- Improved project documentation with practical examples
-- Better onboarding experience for new users
-
-## [0.4.0] - 2025-11-29
-
-### Breaking Changes
-- **Complete configuration separation**: MCP server configuration moved to `mcp_servers/` directory
-- **Configuration file reorganization**:
-  - Wrapper config: `wrapper_config.toml` (root directory)
-  - MCP servers config: `mcp_servers/mcp_servers_config.toml` (mcp_servers/ directory)
-  - MCP tokens: `mcp_servers/mcp_tokens.toml` (mcp_servers/ directory, gitignored)
-- **Command-line argument changes**:
-  - `-c/--config` renamed to `-c/--wrapper-config`
-  - New `--mcp-config` argument (expects filename only, resolved to mcp_servers/ directory)
-- **Removed python-dotenv dependency**: All configuration now uses TOML format
-
-### Added
-- **IPInfo MCP Server**: New server for IP geolocation lookup via ipinfo.io API
-  - 20 preset organizations for demos (Google, Facebook, GitHub, etc.)
-  - Three tools: `lookup_ip()`, `lookup_organization()`, `list_organizations()`
-  - Token management via `mcp_servers/mcp_tokens.toml`
-- **MCP servers directory structure**: All MCP server code now in `mcp_servers/` directory
-- **Enhanced `/servers` endpoint**: Now dynamically lists all connected servers with their available tools
-- **Token management**: TOML-based secure token storage with example file
-
-### Changed
-- **Configuration module architecture**: `mcpserver_config.py` now resolves paths relative to `mcp_servers/` directory
-- **`/servers` endpoint response**: Returns runtime state (connected servers with their tools) instead of config-based listing
-- **Tool listing**: Completely dynamic from FastMCP `client.list_tools()` - no manual maintenance needed
-- **Error handling**: More descriptive error messages for connection failures
-
-### Fixed
-- **Global config initialization**: Fixed `mcp_config` NoneType error on server connection
-- **Config file location**: Proper separation between wrapper and MCP server configurations
-- **`/servers` endpoint**: Removed redundant status when servers are connected
-
-### Removed
-- **python-dotenv dependency**: Replaced with native Python `tomllib` for token management
-
-## [0.3.0] - 2025-11-29
-
-### Added
-- Wrapper configuration section in `server_config.toml` with `[wrapper]` settings
-- Configurable server host and port via command-line arguments (`--host`, `--port`)
-- Configuration priority system: command-line > config file > defaults
-- Separate `wrapper_config.py` module for wrapper-specific configuration
-- Comprehensive inline documentation for all configuration modules
-- `math_server.py` now reads configuration from `server_config.toml`
-- Detailed docstrings following Python documentation standards
-- Automatic conversation history saving after each chat interaction
-- `history_file` and `overwrite_history` parameters to `OllamaWrapper.__init__`
-- Automatic loading of conversation history on startup if `history_file` is specified
-- Auto-save method that respects the `overwrite_history` flag
-- `GET /history` endpoint to retrieve current conversation history
-
-### Changed
-- Renamed internal `config` variable to `mcp_config` for clarity
-- Separated MCP server config from wrapper config into distinct modules
-- Updated README.md with comprehensive configuration documentation
-- Improved validation logic for host and port parameters
-
-### Fixed
-- Configuration alignment between `math_server.py` and wrapper
-- Math server no longer uses hardcoded host/port values
-- Tools no longer persist globally across requests - tools are now scoped per request
-- When `mcp_server` is empty (""), no tools are sent to Ollama (prevents unintended tool usage)
-- Conversation history now automatically saves to configured file after each message
-
-## [0.2.0] - 2025-09-02
-
-### Added
-- External MCP config file support via `server_config.toml`
-- Command-line argument parser for mode and model selection
-- `-c/--config` argument to specify custom configuration file
-- `--history-file` argument to load conversation history
-- `-o/--overwrite-history` flag for history file management
-- `-t/--transport` argument to specify transport method (HTTP/STDIO)
-
-### Changed
-- MCP server configuration moved from inline Python dict to TOML file
-- Server configurations now support both STDIO and HTTP transport modes
-
-## [0.1.0] - 2025-08-19
-
-### Added
-- Initial release of Ollama-FastMCP Wrapper
-- API mode with FastAPI server
-- CLI mode for interactive chat
-- Support for multiple FastMCP servers
-- Connect/disconnect servers at runtime via API
-- Message history with automatic summarization
-- Conversation persistence with save/load functionality
-- Tool calling support for Ollama models
-- STDIO and HTTP transport methods for MCP servers
-- Basic math MCP server example
-
-### API Endpoints
-- `GET /servers` - List available FastMCP servers
-- `POST /connect/{server_name}` - Connect to an MCP server
-- `POST /disconnect/{server_name}` - Disconnect from an MCP server
-- `GET /list_tools?server_name={name}` - List tools for a server (deprecated in v0.6.0, use `GET /servers/{server_name}/tools`)
-- `POST /chat` - Send chat requests with optional tool usage
-- `POST /save_history/{file_name}` - Save conversation history
-- `POST /overwrite_history/{file_name}` - Overwrite existing conversation history
-
-[unreleased]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.3...HEAD
-[0.4.3]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.2...v0.4.3
-[0.4.2]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/andreamoro/ollama-fastmcp-wrapper/releases/tag/v0.1.0
+Initial public release with basic functionality.
