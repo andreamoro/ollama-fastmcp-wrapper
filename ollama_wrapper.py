@@ -135,6 +135,35 @@ class OllamaWrapper:
             except Exception as e:
                 print(f"⚠️  Warning: Could not load history file: {e}")
 
+        @self.app.get("/")
+        async def root():
+            """Root endpoint - lists all available API endpoints"""
+            return {
+                "name": "Ollama-FastMCP Wrapper",
+                "version": "0.5.1",
+                "description": "A proxy service that bridges Ollama with FastMCP",
+                "endpoints": {
+                    "GET /": "This endpoint - lists all available endpoints",
+                    "GET /servers": "List available FastMCP servers from config",
+                    "GET /models": "List installed Ollama models with details",
+                    "GET /list_tools?server_name=<name>": "List available tools for a specific MCP server",
+                    "GET /history": "Get current conversation history",
+                    "POST /connect/{server_name}": "Connect to an MCP server",
+                    "POST /disconnect/{server_name}": "Disconnect from an MCP server",
+                    "POST /chat": "Send a chat message (with optional MCP tools)",
+                    "POST /load_history/{file_name}": "Load conversation history from file",
+                    "POST /save_history/{file_name}": "Save conversation history to file"
+                },
+                "chat_parameters": {
+                    "message": "string (required) - The message to send",
+                    "model": "string (default: 'llama3.2:3b') - Ollama model to use",
+                    "mcp_server": "string (optional) - MCP server name to use tools from",
+                    "temperature": "float (optional, 0.0-2.0) - Response randomness/creativity",
+                    "stateless": "bool (default: false) - Don't persist message to history"
+                },
+                "documentation": "https://github.com/your-repo/ollama-fastmcp-wrapper"
+            }
+
         @self.app.get("/list_tools")
         async def list_tools(server_name: str):
             """List available tools for a given FastMCP server"""
