@@ -5,42 +5,109 @@ Shared utilities for temperature testing demos
 import requests
 import time
 import json
-import sys
-import os
+from pathlib import Path
 from datetime import datetime
 from demo_config import API_URL
 
 DEFAULT_PROMPT = "Explain what a binary search algorithm does in one sentence."
 
+# TEMPERATURE CONFIGURATION
+# Central source of all possible temperature/description configurations.
+# Keys (1-8) correspond to the displayed user selection number.
+ALL_TEMPERATURE_CONFIGS = {
+    1: (None, "Default from Config"),  # Uses config_temp, requires get_config_temperature
+    2: (0.0, "Zero (Maximum Determinism)"),
+    3: (0.1, "Very Low (Deterministic)"),
+    4: (0.5, "Low-Medium"),
+    5: (0.8, "Medium (Balanced)"),
+    6: (1.0, "Medium-High"),
+    7: (1.5, "High (Creative)"),
+    8: (2.0, "Maximum (Very Creative)")
+}
+
+# The keys corresponding to the standard tests
+DEFAULT_TEMPERATURE_TESTS = [2, 4, 6]
+_CONFIG_CACHE = None
+
 # Use API_URL from shared config
 HOST = API_URL
 
-def get_config_temperature():
-    """Read default temperature from wrapper_config.toml"""
-    try:
-        # Get the parent directory (project root)
-        demos_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(demos_dir)
-        config_path = os.path.join(project_root, 'wrapper_config.toml')
+def _load_config_data():
+    """Reads wrapper_config.toml once and caches the default model and temperature."""
+    global _CONFIG_CACHE
 
-        if not os.path.exists(config_path):
-            return 0.2  # Fallback default
+    # Check if cache is already populated
+    if _CONFIG_CACHE is not None:
+        return
+
+    # Initialize cache with fallback values (0.2 embedded here)
+    cache = {
+        'model': None,
+        'temperature': 0.2 # <-- FALLBACK VALUE IS NOW HARDCODED
+    }
+
+    try:
+        # Get the path to wrapper_config.toml using pathlib
+        demos_dir = Path(__file__).resolve().parent
+        config_path = demos_dir.parent / 'wrapper_config.toml'
+
+        if not config_path.exists():
+            _CONFIG_CACHE = cache
+            return
 
         with open(config_path, 'r') as f:
             for line in f:
-                # Look for model line with temperature
-                if 'model' in line and 'temperature' in line:
-                    # Parse inline table: model = { default = "...", temperature = 0.2 }
+                # Look for model line containing temperature and default
+                if 'model' in line and 'temperature' in line and 'default' in line:
+
+                    # 1. Extract Temperature Value
                     try:
-                        # Extract temperature value
                         temp_part = line.split('temperature')[1]
                         temp_str = temp_part.split('=')[1].strip().rstrip('}').strip()
-                        return float(temp_str)
-                    except:
+                        cache['temperature'] = float(temp_str)
+                    except Exception:
                         pass
-        return 0.2  # Fallback if not found
-    except:
-        return 0.2  # Fallback on any error
+
+                    # 2. Extract Default Model Name
+                    try:
+                        parts = line.split('default =')
+                        if len(parts) > 1:
+                            value_part = parts[1].strip()
+                            start_quote = value_part.find('"')
+                            end_quote = value_part.find('"', start_quote + 1)
+                            if start_quote != -1 and end_quote != -1:
+                                cache['model'] = value_part[start_quote + 1:end_quote]
+                    except Exception:
+                        pass
+
+                    # Assume we only need one line for both values
+                    break
+
+    except Exception:
+        # On any error, return the initialized cache with fallbacks
+        pass
+
+    _CONFIG_CACHE = cache
+
+def get_config_temperature():
+    """Read default temperature from wrapper_config.toml using the cache."""
+    _load_config_data()
+    # If the cache load failed entirely, return the module fallback
+    return _CONFIG_CACHE.get('temperature', 0.2)
+
+def get_config_model():
+    """Read default model name from wrapper_config.toml using the cache."""
+    _load_config_data()
+    return _CONFIG_CACHE.get('model', None)
+
+def get_resolved_temperature(temp):
+    """
+    Returns the numerical temperature value, substituting the config default
+    for None. Used primarily for sorting and numerical comparison.
+    """
+    if temp is None:
+        return get_config_temperature()
+    return temp
 
 def test_temperature_model(model, temp, description, prompt=None):
     """Test a specific model and temperature combination"""
@@ -127,34 +194,30 @@ def print_summary():
     print("  • Time = Total request time including network overhead")
     print("  • Total Duration = Ollama processing time")
 
-# Standard temperature test configurations
-TEMPERATURE_TESTS = [
-    (0.1, "Very Low (Deterministic)"),
-    (None, "Default from Config"),
-    (0.8, "Medium (Balanced)"),
-    (1.5, "High (Creative)")
-]
-
 def select_temperatures():
-    """Allow user to select which temperatures to test"""
-    # Read actual default from config
+    """
+    Allow user to select which temperatures to test, sorting the menu
+    numerically based on resolved temperature values.
+    """
     config_temp = get_config_temperature()
 
-    available_temps = [
-        (0.0, "Zero (Maximum Determinism)"),
-        (0.1, "Very Low (Deterministic)"),
-        (None, f"Default from Config ({config_temp})"),
-        (0.5, "Low-Medium"),
-        (0.8, "Medium (Balanced)"),
-        (1.0, "Medium-High"),
-        (1.5, "High (Creative)"),
-        (2.0, "Maximum (Very Creative)")
-    ]
+    # 1. Prepare a sortable list from ALL_TEMPERATURE_CONFIGS
+    # Format: [(resolved_temp, original_temp, description), ...]
+    sortable_configs = []
+    for key, (temp, desc) in ALL_TEMPERATURE_CONFIGS.items():
+        resolved_temp = get_resolved_temperature(temp)
+        sortable_configs.append((resolved_temp, temp, desc))
+
+    # 2. Sort the list numerically
+    sortable_configs.sort(key=lambda x: x[0])
 
     print("\nAvailable temperature settings:")
-    for i, (temp, desc) in enumerate(available_temps, 1):
-        temp_display = temp if temp is not None else "default"
-        print(f"  {i}. {temp_display:8} - {desc}")
+
+    # 3. Print the sorted menu using ENUMERATE for 1-based indexing
+    for i, (resolved_temp, temp, desc) in enumerate(sortable_configs, 1):
+        temp_display = temp if temp is not None else f"default ({config_temp})"
+        # Print using the sorted index 'i'
+        print(f"  {i}. {temp_display:<20} - {desc}")
 
     print("\nEnter temperature numbers to test (comma-separated, or 'all' for all, or 'default' for standard 4):")
     print("Example: 1,3,5  or  all  or  default")
@@ -162,41 +225,83 @@ def select_temperatures():
     user_input = input("> ").strip().lower()
 
     if user_input == 'all':
-        return available_temps
+        # Select all original (temp, desc) tuples from the sorted list
+        selected = [(t, d) for r, t, d in sortable_configs]
     elif user_input == 'default' or user_input == '':
-        return TEMPERATURE_TESTS
+        # Map the original DEFAULT_TEMPERATURE_TESTS keys to their (temp, desc)
+        default_tuples = [ALL_TEMPERATURE_CONFIGS[k] for k in DEFAULT_TEMPERATURE_TESTS]
 
-    try:
-        indices = [int(x.strip()) - 1 for x in user_input.split(',')]
-        selected = [available_temps[i] for i in indices if 0 <= i < len(available_temps)]
-        return selected if selected else TEMPERATURE_TESTS
-    except:
-        print("Invalid selection. Using default temperatures.")
-        return TEMPERATURE_TESTS
+        # Now, ensure the selected default tests are also sorted numerically
+        # Find the items in the sorted list that match the default tuples
+
+        # This is a cleaner way: filter the fully sorted list based on the numerical default values
+        default_resolved_values = [get_resolved_temperature(ALL_TEMPERATURE_CONFIGS[k][0]) for k in DEFAULT_TEMPERATURE_TESTS]
+
+        selected = []
+        for r_temp, temp, desc in sortable_configs:
+            # Check if the resolved temperature matches one of the default numerical values
+            if any(abs(r_temp - dv) < 1e-6 for dv in default_resolved_values):
+                selected.append((temp, desc))
+
+    else:
+        # Handle manual selection based on the SORTED MENU index 'i'
+        try:
+            indices = [int(x.strip()) for x in user_input.split(',')]
+            selected = []
+            for i in indices:
+                if 1 <= i <= len(sortable_configs):
+                    # Index i maps to sortable_configs[i-1]. We extract (temp, desc) (index 1 and 2)
+                    selected.append( (sortable_configs[i-1][1], sortable_configs[i-1][2]) )
+
+            if not selected:
+                print("Invalid selection. Using default temperatures.")
+                # Fallback logic to get default, already sorted
+                default_resolved_values = [get_resolved_temperature(ALL_TEMPERATURE_CONFIGS[k][0]) for k in DEFAULT_TEMPERATURE_TESTS]
+                for r_temp, temp, desc in sortable_configs:
+                    if any(abs(r_temp - dv) < 1e-6 for dv in default_resolved_values):
+                        selected.append((temp, desc))
+        except Exception:
+            print("Invalid selection. Using default temperatures.")
+            # Fallback logic
+            default_resolved_values = [get_resolved_temperature(ALL_TEMPERATURE_CONFIGS[k][0]) for k in DEFAULT_TEMPERATURE_TESTS]
+            selected = []
+            for r_temp, temp, desc in sortable_configs:
+                if any(abs(r_temp - dv) < 1e-6 for dv in default_resolved_values):
+                    selected.append((temp, desc))
+
+    # The list is already sorted by the display logic, so no final sort is needed.
+    return selected
 
 def resolve_prompt_path(path):
     """Resolve prompt file path - tries current dir, then demos/prompts/, then project root"""
     if not path:
         return None
 
-    # If absolute path, use as-is
-    if os.path.isabs(path):
-        return path if os.path.exists(path) else None
+    path_obj = Path(path)
 
-    # Try current directory
-    if os.path.exists(path):
-        return path
+    # 1. If absolute path, use as-is
+    # .is_absolute() replaces os.path.isabs()
+    if path_obj.is_absolute():
+        # .exists() replaces os.path.exists()
+        return path_obj if path_obj.exists() else None
 
-    # Try relative to demos/prompts/ directory
-    demos_dir = os.path.dirname(os.path.abspath(__file__))
-    prompts_path = os.path.join(demos_dir, 'prompts', path)
-    if os.path.exists(prompts_path):
+    # 2. Try current directory (relative to CWD)
+    if path_obj.exists():
+        return path_obj
+
+    # 3. Try relative to demos/prompts/ directory
+    # Path(__file__).resolve().parent gets the absolute path to the directory containing this script.
+    demos_dir = Path(__file__).resolve().parent
+    # The / operator replaces os.path.join()
+    prompts_path = demos_dir / 'prompts' / path
+    if prompts_path.exists():
+        # Note: We return the Path object, not a string
         return prompts_path
 
-    # Try project root + path
-    project_root = os.path.dirname(demos_dir)
-    root_path = os.path.join(project_root, path)
-    if os.path.exists(root_path):
+    # 4. Try project root + path
+    project_root = demos_dir.parent
+    root_path = project_root / path
+    if root_path.exists():
         return root_path
 
     return None
@@ -252,22 +357,92 @@ def get_prompt_from_file_or_input(prompt_arg=None):
                 prompt = f.read().strip()
                 print(f"✓ Loaded prompt from: {resolved_path}")
                 return prompt
-        except:
+        except Exception:
             # If file read fails, treat as direct text
             pass
 
     # Treat as direct text
     return user_input
 
+def format_summary_display(summary, format_type='console'):
+    """
+    Format summary statistics for display in console or markdown.
+
+    Args:
+        summary: Dictionary containing summary statistics
+        format_type: 'console' or 'markdown'
+
+    Returns:
+        String formatted for the specified output type
+    """
+    if not summary:
+        return ""
+
+    if format_type == 'console':
+        # Console format with bullet points
+        lines = []
+        lines.append("\nPerformance:")
+        lines.append(f"  • Fastest Model: {summary.get('fastest_model', 'N/A')} at temperature {summary.get('fastest_temperature', 'N/A')}")
+        lines.append(f"    - TPS: {summary.get('highest_tps', 'N/A')}")
+        lines.append(f"    - Tokens: {summary.get('fastest_completion_tokens', 'N/A')}")
+        lines.append(f"    - Elapsed Time: {summary.get('fastest_elapsed_time_readable', 'N/A')} ({summary.get('fastest_elapsed_time_s', 'N/A')}s)")
+        lines.append(f"    - Total Duration: {summary.get('fastest_total_duration_readable', 'N/A')} ({summary.get('fastest_total_duration_s', 'N/A')}s)")
+        lines.append(f"  • Average TPS: {summary.get('average_tps', 'N/A')}")
+        lines.append(f"  • Average Tokens: {summary.get('average_tokens', 'N/A')}")
+
+        lines.append("\nResponse Lengths:")
+        lines.append(f"  • Min: {summary.get('min_response_length', 'N/A')} chars")
+        lines.append(f"  • Max: {summary.get('max_response_length', 'N/A')} chars")
+        lines.append(f"  • Avg: {summary.get('avg_response_length', 'N/A')} chars")
+
+        return '\n'.join(lines)
+
+    elif format_type == 'markdown':
+        # Markdown format with headers and lists
+        lines = []
+        lines.append("## Summary Statistics\n")
+
+        # Fastest model section
+        lines.append("### Fastest Model (Highest TPS)\n")
+        lines.append(f"- **Model**: {summary.get('fastest_model', 'N/A')}")
+        lines.append(f"- **Temperature**: {summary.get('fastest_temperature', 'N/A')}")
+        lines.append(f"- **TPS**: {summary.get('highest_tps', 'N/A')}")
+        lines.append(f"- **Tokens**: {summary.get('fastest_completion_tokens', 'N/A')}")
+        lines.append(f"- **Elapsed Time**: {summary.get('fastest_elapsed_time_readable', 'N/A')} ({summary.get('fastest_elapsed_time_s', 'N/A')}s)")
+        lines.append(f"- **Total Duration**: {summary.get('fastest_total_duration_readable', 'N/A')} ({summary.get('fastest_total_duration_s', 'N/A')}s)\n")
+
+        # Averages section
+        lines.append("### Averages\n")
+        lines.append(f"- **Average TPS**: {summary.get('average_tps', 'N/A')}")
+        lines.append(f"- **Average Tokens**: {summary.get('average_tokens', 'N/A')}\n")
+
+        # Response lengths section
+        lines.append("### Response Lengths\n")
+        lines.append(f"- **Min**: {summary.get('min_response_length', 'N/A')} chars")
+        lines.append(f"- **Max**: {summary.get('max_response_length', 'N/A')} chars")
+        lines.append(f"- **Avg**: {summary.get('avg_response_length', 'N/A')} chars")
+
+        return '\n'.join(lines)
+
+    else:
+        raise ValueError(f"Unsupported format_type: {format_type}")
+
 def save_results_to_json(results_data, filename):
-    """Save test results to JSON file"""
+    """Save test results to JSON file, ensuring the output directory exists."""
+
+    filepath = Path(filename)
+    # Use Path.parent and Path.mkdir() for robust directory creation
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
     with open(filename, 'w') as f:
         json.dump(results_data, f, indent=2)
-    print(f"\n✓ Results saved to: {filename}")
 
 def export_results_to_markdown(results_data, json_filename):
     """Export results to markdown format"""
-    md_filename = json_filename.replace('.json', '.md')
+
+    json_path = Path(json_filename)
+    md_filename = json_path.with_suffix('.md')
+    md_filename.parent.mkdir(parents=True, exist_ok=True)
 
     with open(md_filename, 'w') as f:
         # Header
@@ -286,38 +461,39 @@ def export_results_to_markdown(results_data, json_filename):
 
         # Summary table
         f.write("## Summary Table\n\n")
-        f.write("| Model | Temperature | TPS | Tokens | Time | Total Duration | Description |\n")
-        f.write("|-------|-------------|-----|--------|------|----------------|-------------|\n")
+        f.write("| Test # | Model | Temperature | TPS | Tokens | Elapsed Time | Total Duration | Description |\n")
+        f.write("|--------|-------|-------------|-----|--------|--------------|----------------|-------------|\n")
 
         for result in results_data['results']:
+            test_num = result.get('test_number', 'N/A')
             model = result['model']
             temp = result['temperature']
             tps = result['metrics'].get('tokens_per_second', 0)
             tokens = result['metrics'].get('completion_tokens', 0)
-            elapsed = format_duration(result['elapsed_time'])
+            elapsed = result.get('elapsed_time_readable', format_duration(result['elapsed_time']))
             total_dur = format_duration(result['metrics'].get('total_duration_s', 0))
             desc = result['description']
 
-            f.write(f"| {model} | {temp} | {tps:.2f} | {tokens} | {elapsed} | {total_dur} | {desc} |\n")
+            f.write(f"| {test_num} | {model} | {temp} | {tps:.2f} | {tokens} | {elapsed} | {total_dur} | {desc} |\n")
 
         # Full responses
         f.write("\n## Detailed Responses\n\n")
 
         for result in results_data['results']:
-            f.write(f"### {result['model']} - Temperature {result['temperature']} ({result['description']})\n\n")
+            test_num = result.get('test_number', 'N/A')
+            f.write(f"### Test #{test_num}: {result['model']} - Temperature {result['temperature']} ({result['description']})\n\n")
             f.write(f"**Response:**\n> {result['response']}\n\n")
             f.write(f"**Metrics:**\n")
             f.write(f"- TPS: {result['metrics'].get('tokens_per_second', 0):.2f}\n")
             f.write(f"- Tokens: {result['metrics'].get('completion_tokens', 0)}\n")
-            f.write(f"- Time: {format_duration(result['elapsed_time'])}\n")
+            f.write(f"- Elapsed Time: {result.get('elapsed_time_readable', format_duration(result['elapsed_time']))}\n")
             f.write(f"- Total Duration: {format_duration(result['metrics'].get('total_duration_s', 0))}\n\n")
 
-        # Summary insights
-        if 'summary' in results_data:
-            f.write("## Summary Statistics\n\n")
-            summary = results_data['summary']
-            for key, value in summary.items():
-                f.write(f"- **{key.replace('_', ' ').title()}**: {value}\n")
+        # Summary insights - use centralized formatting function
+        if 'summary' in results_data and results_data['summary']:
+            summary_text = format_summary_display(results_data['summary'], format_type='markdown')
+            f.write(summary_text)
+            f.write('\n')
 
     print(f"✓ Markdown export saved to: {md_filename}")
     return md_filename

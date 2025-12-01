@@ -6,18 +6,27 @@ Shows how temperature affects response quality across different model families
 
 import sys
 from datetime import datetime
+from pathlib import Path
 from temperature_test_utils import (
     test_temperature_model,
     format_duration,
     get_available_models,
     get_config_temperature,
+    get_config_model,
     get_prompt_from_file_or_input,
     select_temperatures,
     save_results_to_json,
     export_results_to_markdown,
     print_summary,
-    DEFAULT_PROMPT
+    format_summary_display,
+    DEFAULT_PROMPT,
+    ALL_TEMPERATURE_CONFIGS,
+    DEFAULT_TEMPERATURE_TESTS
 )
+
+# Get the directory where this script is located
+SCRIPT_DIR = Path(__file__).resolve().parent
+OUTPUT_DIR = SCRIPT_DIR / "test_results"
 
 def select_models(available_models):
     """Allow user to select which models to test"""
@@ -37,13 +46,14 @@ def select_models(available_models):
         indices = [int(x.strip()) - 1 for x in user_input.split(',')]
         selected = [available_models[i] for i in indices if 0 <= i < len(available_models)]
         return selected
-    except:
-        print("Invalid selection. Using first model.")
+    except Exception as e:
+        print(f"Invalid selection ({e}). Using first model.")
         return [available_models[0]] if available_models else []
 
 def get_output_filename():
-    """Ask user for output filename"""
+    """Ask user for output filename, saving it to the predefined directory."""
     print("\nOutput file configuration:")
+    print(f"  - Files will be saved in the '{OUTPUT_DIR}' directory.")
     print("  - Press Enter for auto-generated filename (YYYYMMDD_HHMMSS_multi_test_comparison.json)")
     print("  - Enter a filename (will add .json extension if needed)")
 
@@ -52,13 +62,24 @@ def get_output_filename():
     if user_input == '':
         # Auto-generate filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{timestamp}_multi_test_comparison.json"
+        filename = f"{timestamp}_multi_test_comparison.json"
+    else:
+        # Add .json extension if not present
+        filename = user_input
+        if not filename.endswith('.json'):
+            filename += '.json'
 
-    # Add .json extension if not present
-    if not user_input.endswith('.json'):
-        user_input += '.json'
+    # Use Path object and the / operator for clean path joining.
+    # This function now returns a pathlib.Path object.
+    return Path(OUTPUT_DIR) / filename
 
-    return user_input
+def get_output_filename_auto():
+    """Auto-generate filename with timestamp, saving it to the predefined directory."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_multi_test_comparison.json"
+
+    # Use Path operator / for clean path joining, returns a Path object
+    return Path(OUTPUT_DIR) / filename
 
 def calculate_summary_stats(results):
     """Calculate summary statistics from results"""
@@ -70,7 +91,13 @@ def calculate_summary_stats(results):
     # Find fastest model (highest TPS)
     fastest = max(results, key=lambda r: r['metrics'].get('tokens_per_second', 0))
     summary['fastest_model'] = fastest['model']
+    summary['fastest_temperature'] = fastest['temperature']
     summary['highest_tps'] = round(fastest['metrics'].get('tokens_per_second', 0), 2)
+    summary['fastest_elapsed_time_s'] = round(fastest['elapsed_time'], 2)
+    summary['fastest_elapsed_time_readable'] = fastest['elapsed_time_readable']
+    summary['fastest_total_duration_s'] = round(fastest['metrics'].get('total_duration_s', 0), 2)
+    summary['fastest_total_duration_readable'] = format_duration(fastest['metrics'].get('total_duration_s', 0))
+    summary['fastest_completion_tokens'] = fastest['metrics'].get('completion_tokens', 0)
 
     # Average statistics
     avg_tokens = sum(r['metrics'].get('completion_tokens', 0) for r in results) / len(results)
@@ -87,10 +114,39 @@ def calculate_summary_stats(results):
 
     return summary
 
-def run_tests(selected_models, selected_temps, prompt, output_filename, config_temp):
+def build_results_data(all_results, selected_models, selected_temps, prompt, config_temp, start_time, status="initialized"):
+    """Builds the comprehensive results data structure with metadata, results, and summary."""
+
+    end_time = datetime.now()
+    total_duration = (end_time - start_time).total_seconds()
+
+    if status == "initialized":
+        total_duration = 0
+        end_time = None
+
+    total_tests_count = len(selected_models) * len(selected_temps)
+
+    return {
+        "test_metadata": {
+            "start_timestamp": start_time.isoformat(),
+            "end_timestamp": end_time.isoformat() if end_time else None,
+            "total_duration_s": total_duration,
+            "total_duration_readable": format_duration(total_duration),
+            "prompt": prompt,
+            "models_tested": selected_models,
+            "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
+            "total_tests": total_tests_count,
+            "completed_tests": len(all_results),
+            "status": status
+        },
+        "results": all_results,
+        "summary": calculate_summary_stats(all_results) if all_results else {}
+    }
+
+def run_tests(selected_models, selected_temps, prompt, output_filename, config_temp, start_time):
     """Execute all temperature tests with incremental saving to prevent data loss"""
-    start_time = datetime.now()
-    start_timestamp = start_time.isoformat()
+
+    start_timestamp = start_time.isoformat() # Use passed start_time
 
     all_results = []
     total_tests = len(selected_models) * len(selected_temps)
@@ -103,43 +159,39 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
 
             result = test_temperature_model(model, temp, desc, prompt)
             if result:
+                # Add test number and readable elapsed time
+                result['test_number'] = current_test
+                result['elapsed_time_readable'] = format_duration(result['elapsed_time'])
                 all_results.append(result)
 
                 # Save after each test to prevent data loss
-                partial_results_data = {
-                    "test_metadata": {
-                        "start_timestamp": start_timestamp,
-                        "end_timestamp": datetime.now().isoformat(),
-                        "total_duration_s": (datetime.now() - start_time).total_seconds(),
-                        "total_duration_readable": format_duration((datetime.now() - start_time).total_seconds()),
-                        "prompt": prompt,
-                        "models_tested": selected_models,
-                        "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
-                        "total_tests": len(all_results),
-                        "status": "in_progress" if current_test < total_tests else "completed"
-                    },
-                    "results": all_results,
-                    "summary": calculate_summary_stats(all_results)
-                }
+                partial_results_data = build_results_data(
+                    all_results,
+                    selected_models,
+                    selected_temps,
+                    prompt,
+                    config_temp,
+                    start_time,
+                    status="in_progress"
+                )
                 save_results_to_json(partial_results_data, output_filename)
 
     end_time = datetime.now()
-    end_timestamp = end_time.isoformat()
     total_duration = (end_time - start_time).total_seconds()
 
     return {
         'results': all_results,
         'start_timestamp': start_timestamp,
-        'end_timestamp': end_timestamp,
+        'end_timestamp': end_time.isoformat(),
         'total_duration': total_duration
     }
 
 def display_results_by_model(all_results, selected_models):
     """Display results organized by model"""
     print()
-    print("=" * 140)
+    print("=" * 80)
     print("RESULTS BY MODEL")
-    print("=" * 140)
+    print("=" * 80)
 
     for model in selected_models:
         model_results = [r for r in all_results if r['model'] == model]
@@ -148,19 +200,19 @@ def display_results_by_model(all_results, selected_models):
             continue
 
         print(f"\nModel: {model}")
-        print("-" * 140)
+        print("-" * 80)
 
         # Table header
         header = f"{'Temperature':<20} {'TPS':<10} {'Tokens':<10} {'Time':<15} {'Total Duration':<15} {'Description':<25} {'Response Preview':<40}"
         print(header)
-        print("-" * 140)
+        print("-" * 80)
 
         # Table rows
         for r in model_results:
             temp_str = str(r['temperature'])
             tps = r['metrics'].get('tokens_per_second', 0)
             tokens = r['metrics'].get('completion_tokens', 0)
-            elapsed = format_duration(r['elapsed_time'])
+            elapsed = r.get('elapsed_time_readable', format_duration(r['elapsed_time']))
             total_dur = format_duration(r['metrics'].get('total_duration_s', 0))
             desc = r['description']
             response_preview = (r['response'][:37] + "...") if len(r['response']) > 40 else r['response']
@@ -176,9 +228,9 @@ def display_cross_model_comparison(all_results, selected_models, selected_temps)
     config_temp = get_config_temperature()
 
     print()
-    print("=" * 140)
+    print("=" * 80)
     print("CROSS-MODEL COMPARISON (at each temperature)")
-    print("=" * 140)
+    print("=" * 80)
 
     for temp, desc in selected_temps:
         temp_display = temp if temp is not None else f"default ({config_temp})"
@@ -188,18 +240,18 @@ def display_cross_model_comparison(all_results, selected_models, selected_temps)
             continue
 
         print(f"\nTemperature: {temp_display} - {desc}")
-        print("-" * 140)
+        print("-" * 80)
 
         # Table header
         header = f"{'Model':<35} {'TPS':<10} {'Tokens':<10} {'Time':<15} {'Total Duration':<15} {'Response Preview':<50}"
         print(header)
-        print("-" * 140)
+        print("-" * 80)
 
         for r in temp_results:
             model_name = r['model']
             tps = r['metrics'].get('tokens_per_second', 0)
             tokens = r['metrics'].get('completion_tokens', 0)
-            elapsed = format_duration(r['elapsed_time'])
+            elapsed = r.get('elapsed_time_readable', format_duration(r['elapsed_time']))
             total_dur = format_duration(r['metrics'].get('total_duration_s', 0))
             response_preview = (r['response'][:47] + "...") if len(r['response']) > 50 else r['response']
 
@@ -209,9 +261,9 @@ def display_cross_model_comparison(all_results, selected_models, selected_temps)
 def display_summary(results_data, selected_models):
     """Display summary statistics and insights"""
     print()
-    print("=" * 140)
+    print("=" * 80)
     print("SUMMARY & INSIGHTS")
-    print("=" * 140)
+    print("=" * 80)
 
     total_duration = results_data['test_metadata']['total_duration_s']
     all_results = results_data['results']
@@ -220,15 +272,9 @@ def display_summary(results_data, selected_models):
     print(f"\nTest Duration: {format_duration(total_duration)}")
     print(f"Total Tests: {len(all_results)}")
 
-    print(f"\nPerformance:")
-    print(f"  • Fastest Model: {summary['fastest_model']} ({summary['highest_tps']} TPS)")
-    print(f"  • Average TPS: {summary['average_tps']}")
-    print(f"  • Average Tokens: {summary['average_tokens']}")
-
-    print(f"\nResponse Lengths:")
-    print(f"  • Min: {summary['min_response_length']} chars")
-    print(f"  • Max: {summary['max_response_length']} chars")
-    print(f"  • Avg: {summary['avg_response_length']} chars")
+    # Use centralized formatting function
+    summary_text = format_summary_display(summary, format_type='console')
+    print(summary_text)
 
     print_summary()
 
@@ -243,9 +289,9 @@ def display_full_responses(all_results, selected_models, selected_temps):
     config_temp = get_config_temperature()
 
     print()
-    print("=" * 140)
+    print("=" * 80)
     print("FULL RESPONSES")
-    print("=" * 140)
+    print("=" * 80)
 
     for model in selected_models:
         for temp, desc in selected_temps:
@@ -260,20 +306,36 @@ def display_full_responses(all_results, selected_models, selected_temps):
             r = matching[0]
 
             print(f"\nModel: {model} | Temperature: {temp_display} ({desc})")
-            print("-" * 140)
+            print("-" * 80)
             print(f"Response ({len(r['response'])} chars):")
             print(r['response'])
             print()
             print(f"Metrics: {r['metrics'].get('completion_tokens', 0)} tokens @ {r['metrics'].get('tokens_per_second', 0):.2f} TPS")
 
 def main():
-    print("=" * 120)
+    print("=" * 80)
     print("ENHANCED TEMPERATURE TEST - MULTI-MODEL COMPARISON")
-    print("=" * 120)
+    print("=" * 80)
+
+    # Check for non-interactive flag (e.g., `--default`)
+    is_non_interactive = '--default' in sys.argv
 
     # Get prompt (from command line arg, file, or interactive input)
-    prompt_arg = sys.argv[1] if len(sys.argv) > 1 else None
-    prompt = get_prompt_from_file_or_input(prompt_arg)
+    # Filter out the script name (sys.argv[0]) and the non-interactive flag ('--default')
+    potential_prompts = [arg for arg in sys.argv[1:] if arg != '--default']
+
+    # The prompt_arg is the first remaining argument, or None if no prompt was supplied.
+    prompt_arg = potential_prompts[0] if potential_prompts else None
+
+    # --- NON-INTERACTIVE PROMPT HANDLING ---
+    if is_non_interactive and not prompt_arg:
+        # In non-interactive mode with no explicit prompt argument, use the default.
+        prompt = DEFAULT_PROMPT
+        print(f"✓ Using default prompt for non-interactive mode: '{DEFAULT_PROMPT}'")
+    else:
+        # Use the utility function, which handles file resolution and interactive fallback.
+        # If prompt_arg is None here, it means we are interactive and will ask the user.
+        prompt = get_prompt_from_file_or_input(prompt_arg)
 
     # Get available models
     print("\nFetching available models from Ollama...")
@@ -283,67 +345,120 @@ def main():
         print("No models available. Please ensure Ollama is running and has models installed.")
         sys.exit(1)
 
-    # Let user select models and temperatures
-    selected_models = select_models(available_models)
-    if not selected_models:
-        print("No models selected.")
-        sys.exit(1)
-
-    selected_temps = select_temperatures()
-    output_filename = get_output_filename()
-
     # Display test configuration
     config_temp = get_config_temperature()
-    print(f"\n{'='*120}")
+
+    if is_non_interactive:
+        print("\nRunning in non-interactive default mode.")
+
+        # 1. Non-interactive Model Selection: Use config default with availability check
+        default_model = get_config_model()
+
+        if default_model and default_model in available_models:
+            # Use the configured model
+            selected_models = [default_model]
+            print(f"✓ Using configured default model: {default_model}")
+
+        elif default_model and default_model not in available_models:
+            # RAISE EXCEPTION AS REQUESTED
+            raise ValueError(
+                f"Configured default model '{default_model}' is not available in the list of installed models. "
+                "Please install the model or update 'wrapper_config.toml'."
+            )
+
+        else:
+            # Fallback to the first available model if no default is configured/found
+            fallback_model = available_models[0]
+            selected_models = [fallback_model]
+            print(f"⚠ Config default model not found. Falling back to first available model: {fallback_model}")
+
+        # 2. Non-interactive Temperature Selection: Use the standard default set.
+        selected_temps = [ALL_TEMPERATURE_CONFIGS[k] for k in DEFAULT_TEMPERATURE_TESTS]
+
+        # 3. Non-interactive Output Filename: Auto-generate
+        output_filename = get_output_filename_auto()
+
+    else:
+        # Existing interactive logic
+        selected_models = select_models(available_models)
+        if not selected_models:
+            print("No models selected.")
+            sys.exit(1)
+
+        selected_temps = select_temperatures()
+        output_filename = get_output_filename()
+
+    print(f"\n{'=' * 80}")
     print("TEST CONFIGURATION")
-    print(f"{'='*120}")
-    print(f"Models: {', '.join(selected_models)}")
-    print(f"Temperatures: {', '.join(str(t[0] if t[0] is not None else 'default') for t in selected_temps)}")
-    print(f"Prompt: {prompt[:80]}..." if len(prompt) > 80 else f"Prompt: {prompt}")
-    print(f"Output file: {output_filename}")
-    print(f"{'='*120}")
-    print("Note: Results are saved after each test to prevent data loss on interruption.")
-    print(f"{'='*120}\n")
+    print(f"{'=' * 80}")
+
+    # --- INITIALIZATION AND METADATA SAVE ---
+    start_time = datetime.now()
+    # Use the new helper function for the initial save
+    initial_results_data = build_results_data(
+        all_results=[],
+        selected_models=selected_models,
+        selected_temps=selected_temps,
+        prompt=prompt,
+        config_temp=config_temp,
+        start_time=start_time,
+        status="initialized"
+    )
+
+    # Save the file with the header/metadata immediately!
+    save_results_to_json(initial_results_data, output_filename)
+    print(f"\n✓ Initial metadata saved to: {output_filename}")
+    print(f"Test in progress... Check {output_filename} for incremental results.")
 
     # Run all tests (with incremental saving)
-    test_results = run_tests(selected_models, selected_temps, prompt, output_filename, config_temp)
+    test_results = run_tests(
+        selected_models,
+        selected_temps,
+        prompt,
+        output_filename,
+        config_temp,
+        start_time # Pass the starting datetime object
+    )
 
     if not test_results['results']:
         print("\nNo results collected. Please check if the API is running.")
         sys.exit(1)
 
-    # Build final results data structure
-    results_data = {
-        "test_metadata": {
-            "start_timestamp": test_results['start_timestamp'],
-            "end_timestamp": test_results['end_timestamp'],
-            "total_duration_s": test_results['total_duration'],
-            "total_duration_readable": format_duration(test_results['total_duration']),
-            "prompt": prompt,
-            "models_tested": selected_models,
-            "temperatures_tested": [t[0] if t[0] is not None else f"default ({config_temp})" for t in selected_temps],
-            "total_tests": len(test_results['results']),
-            "status": "completed"
-        },
-        "results": test_results['results'],
-        "summary": calculate_summary_stats(test_results['results'])
-    }
+    # Build FINAL results data structure using the helper function
+    test_results = build_results_data(
+        all_results=test_results['results'],
+        selected_models=selected_models,
+        selected_temps=selected_temps,
+        prompt=prompt,
+        config_temp=config_temp,
+        start_time=start_time,
+        status="completed"
+    )
+
+    print(f"Models: {', '.join(selected_models)}")
+    print(f"Temperatures: {', '.join(str(t[0] if t[0] is not None else 'default') for t in selected_temps)}")
+    print(f"Prompt: {prompt[:80]}..." if len(prompt) > 80 else f"Prompt: {prompt}")
+    print(f"Output file: {output_filename}")
+    print(f"{'=' * 80}")
+    print("Note: Results are saved after each test to prevent data loss on interruption.")
+    print(f"{'=' * 80}\n")
 
     # Final save with completed status and markdown export
-    save_results_to_json(results_data, output_filename)
-    export_results_to_markdown(results_data, output_filename)
+    save_results_to_json(test_results, output_filename)
+    print(f"\n✓ Results saved to: {output_filename}")
+    export_results_to_markdown(test_results, output_filename)
 
     # Display results
-    display_results_by_model(results_data['results'], selected_models)
-    display_cross_model_comparison(results_data['results'], selected_models, selected_temps)
-    display_summary(results_data, selected_models)
+    display_results_by_model(test_results['results'], selected_models)
+    display_cross_model_comparison(test_results['results'], selected_models, selected_temps)
+    display_summary(test_results, selected_models)
 
     # Footer
     print()
-    print("=" * 140)
+    print("=" * 80)
     print(f"Results saved to: {output_filename}")
-    print(f"Markdown export: {output_filename.replace('.json', '.md')}")
-    print("=" * 140)
+    print(f"Markdown export: {output_filename.with_suffix('.md')}")
+    print("=" * 80)
     print()
     print("Demo complete!")
 
