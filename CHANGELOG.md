@@ -7,14 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v0.5.0 - Chat Separation Logic
-The following changes are planned for the next major release:
+## [0.5.0] - 2025-11-30
 
-- **Remove auto-loading functionality**: Chat endpoint will no longer automatically initialize MCP servers
-- **Explicit connection requirement**: Users must explicitly connect/disconnect servers via API endpoints
-- **Remove `mcp_config` dependency from chat flow**: The chat endpoint will only use tools from already-connected servers
-- **Cleaner separation of concerns**: Wrapper focuses on runtime state, not configuration management
-- **Breaking change**: This changes how the chat endpoint interacts with MCP servers
+### ⚠️ BREAKING CHANGES
+
+**Chat Endpoint No Longer Auto-Connects to MCP Servers**
+
+Previously, the `/chat` endpoint would automatically connect to an MCP server if `mcp_server` was specified in the request. This has been removed for cleaner separation of concerns.
+
+**Migration Guide:**
+```bash
+# OLD (v0.4.x) - Auto-connected on first chat request
+curl -X POST http://localhost:8000/chat -d '{
+  "message": "Calculate 5 + 3",
+  "mcp_server": "math"  # Automatically connected if not already
+}'
+
+# NEW (v0.5.0+) - Must explicitly connect first
+curl -X POST http://localhost:8000/connect/math  # Connect first!
+curl -X POST http://localhost:8000/chat -d '{
+  "message": "Calculate 5 + 3",
+  "mcp_server": "math"  # Uses already-connected server
+}'
+```
+
+### Removed
+- **Auto-loading in chat endpoint**: `/chat` no longer automatically initializes MCP servers
+- **Implicit server connections**: All server connections must now be explicit via `/connect/{server_name}`
+
+### Changed
+- **Chat endpoint behavior**: Now returns HTTP 400 error if `mcp_server` is specified but not connected
+  - Error message includes instructions to connect first: `POST /connect/{server_name}`
+- **Connection management**: Clear separation between connection lifecycle and chat operations
+
+### Improved
+- **Predictability**: Explicit connection state - no hidden auto-connections
+- **Error handling**: Clear error messages when trying to use non-connected servers
+- **Code clarity**: Chat logic no longer mixed with connection management
+- **Resource control**: Better control over when servers are initialized
 
 ## [0.4.3] - 2025-11-30
 

@@ -110,8 +110,10 @@ Endpoints:
 
 #### Usage Scenarios
 
-**Scenario 1: Using Tools with Explicit Connection**
+**Scenario 1: Using Tools (Requires Explicit Connection)**
 ```bash
+# ⚠️ IMPORTANT (v0.5.0+): Servers must be explicitly connected before use
+
 # Step 1: Connect to MCP server
 curl -X POST http://localhost:8000/connect/math
 
@@ -121,20 +123,12 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
   "model": "llama3.2:3b",
   "mcp_server": "math"
 }'
+
+# If you forget to connect first, you'll get a clear error:
+# HTTP 400: Server 'math' is not connected. Please connect first using POST /connect/math
 ```
 
-**Scenario 2: Auto-Connect (specifying server in chat request)**
-```bash
-# Server auto-connects when specified in mcp_server parameter
-curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "What is 15 multiplied by 3?",
-  "model": "llama3.2:3b",
-  "mcp_server": "math"
-}'
-# Server "math" is automatically connected if not already
-```
-
-**Scenario 3: Pure Chat (no tools)**
+**Scenario 2: Pure Chat (no tools)**
 ```bash
 # Use empty mcp_server for pure Ollama chat without tools
 curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
@@ -145,7 +139,7 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 # No tools are sent to Ollama, faster response
 ```
 
-**Scenario 4: Custom Temperature for Creative Tasks**
+**Scenario 3: Custom Temperature for Creative Tasks**
 ```bash
 # Override default temperature for more creative responses
 curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
@@ -171,7 +165,7 @@ curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
 # }
 ```
 
-**Scenario 5: Discovering Available Models**
+**Scenario 4: Discovering Available Models**
 ```bash
 # List all installed Ollama models
 curl http://localhost:8000/models
@@ -192,7 +186,7 @@ curl http://localhost:8000/models
 # }
 ```
 
-**Scenario 6: Managing Server Connections**
+**Scenario 5: Managing Server Connections**
 ```bash
 # List available servers
 curl http://localhost:8000/servers
