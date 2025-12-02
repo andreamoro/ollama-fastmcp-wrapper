@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Async I/O for conversation history**: Converted save/load operations to async
+  - Added `aiofiles` dependency for non-blocking file I/O
+  - `MessageHistory.save()` and `.load()` are now async methods
+  - History loading moved to FastAPI lifespan for proper async support
+  - All history endpoints (`/history/load`, `/history/save`, `/history/overwrite`) use async I/O
+  - Auto-save functionality disabled (TODO: Consider enabling in future for better persistence)
+
 ### Fixed
 - **Configuration**: Removed deprecated `server_config.toml` file
   - All configuration now uses `wrapper_config.toml` exclusively

@@ -26,6 +26,7 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 from contextlib import asynccontextmanager
 from enum import Enum
+import aiofiles
 
 mcp_config = None
 # Global FastMCP clients storage
@@ -94,15 +95,17 @@ class MessageHistory:
         self.messages = [{"role": "system", "content": self.system_prompt}]
         self.summary = None
 
-    def save(self, path):
-        """Save message history to a JSON file for restart the conversation."""
-        with open(path, "w") as f:
-            json.dump({"messages": self.messages, "summary": self.summary}, f, indent=2)
+    async def save(self, path):
+        """Save message history to a JSON file for restart the conversation (async)."""
+        data = json.dumps({"messages": self.messages, "summary": self.summary}, indent=2)
+        async with aiofiles.open(path, "w") as f:
+            await f.write(data)
 
-    def load(self, path):
-        """Load previous conversation history from a JSON file."""
-        with open(path, "r") as f:
-            data = json.load(f)
+    async def load(self, path):
+        """Load previous conversation history from a JSON file (async)."""
+        async with aiofiles.open(path, "r") as f:
+            content = await f.read()
+        data = json.loads(content)
         self.messages = data.get("messages", [])
         self.summary = data.get("summary", None)
 
@@ -122,18 +125,35 @@ class OllamaWrapper:
         self.history_file = history_file
         self.overwrite_history = overwrite_history
         self.config_temperature = config_temperature  # Default temperature from config
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.3.0", lifespan=OllamaWrapper._lifespan)
         self.transport = transport
 
-        # Load history from file if specified
-        if self.history_file:
-            try:
-                self.message_history.load(self.history_file)
-                print(f"📖 Loaded conversation history from {self.history_file}")
-            except FileNotFoundError:
-                print(f"📝 History file {self.history_file} not found, starting fresh")
-            except Exception as e:
-                print(f"⚠️  Warning: Could not load history file: {e}")
+        # Create lifespan with access to self
+        @asynccontextmanager
+        async def lifespan_with_history(app: FastAPI):
+            """Lifespan event to initialise FastMCP clients and load history"""
+            print("🔗 Initialising FastMCP clients...")
+
+            # Load history from file if specified
+            if self.history_file:
+                try:
+                    await self.message_history.load(self.history_file)
+                    print(f"📖 Loaded conversation history from {self.history_file}")
+                except FileNotFoundError:
+                    print(f"📝 History file {self.history_file} not found, starting fresh")
+                except Exception as e:
+                    print(f"⚠️  Warning: Could not load history file: {e}")
+
+            yield
+
+            # Clean up FastMCP connections on shutdown
+            for server_name, client in fastmcp_clients.items():
+                try:
+                    await client.disconnect()
+                    print(f"✅ Disconnected from FastMCP server: {server_name}")
+                except Exception as e:
+                    print(f"⚠️  Error disconnecting from {server_name}: {e}")
+
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.3.0", lifespan=lifespan_with_history)
 
         @self.app.get("/")
         async def root():
@@ -228,23 +248,6 @@ class OllamaWrapper:
             """Clear the current conversation history."""
             self.message_history.reset()
             return {"status": "success", "message": "Conversation history cleared"}
-
-    @staticmethod
-    @asynccontextmanager
-    async def _lifespan(app: FastAPI):
-        """Lifespan event to initialise FastMCP clients"""
-        # This is occurring at startup and exit
-        # It can be used for preloading or initializing resources
-        print("🔗 Initialising FastMCP clients...")
-
-        yield
-        # Clean up FastMCP connections on shutdown
-        for server_name, client in fastmcp_clients.items():
-            try:
-                await client.disconnect() # TO-DO: check for possible bug
-                print(f"✅ Disconnected from FastMCP server: {server_name}")
-            except Exception as e:
-                print(f"⚠️  Error disconnecting from {server_name}: {e}")
 
     async def initialise_mcp_client(
             self,
@@ -421,9 +424,9 @@ class OllamaWrapper:
             print(f"Error fetching tools: {e}")
             return []
 
-    def __auto_save_history(self):
+    async def __auto_save_history(self):
         """
-        Automatically save conversation history to file if configured.
+        Automatically save conversation history to file if configured (async).
 
         Saves to the file specified in self.history_file if set.
         Respects the overwrite_history flag for whether to overwrite existing files.
@@ -444,8 +447,8 @@ class OllamaWrapper:
                 # This prevents overwriting on the first save
                 pass
 
-            # Save the history
-            self.message_history.save(str(file_path))
+            # Save the history (async)
+            await self.message_history.save(str(file_path))
 
         except Exception as e:
             # Don't fail the chat if history saving fails, just log it
@@ -548,7 +551,8 @@ class OllamaWrapper:
                     # Response with tools
                     if not request.stateless:
                         self.message_history.add("assistant", response_w_tools['message']['content'])
-                        self.__auto_save_history()  # Auto-save after response
+                        # TODO: Enable auto-save in future (async implementation ready)
+                        # await self.__auto_save_history()
 
                     # Extract metrics from response
                     metrics = self._extract_metrics(response_w_tools)
@@ -562,7 +566,8 @@ class OllamaWrapper:
                     # Direct response, no tools used
                     if not request.stateless:
                         self.message_history.add("assistant", response['message']['content'])
-                        self.__auto_save_history()  # Auto-save after response
+                        # TODO: Enable auto-save in future (async implementation ready)
+                        # await self.__auto_save_history()
 
                     # Extract metrics from response
                     metrics = self._extract_metrics(response)
@@ -581,7 +586,8 @@ class OllamaWrapper:
                 )
                 if not request.stateless:
                     self.message_history.add("assistant", response['message']['content'])
-                    self.__auto_save_history()  # Auto-save after response
+                    # TODO: Enable auto-save in future (async implementation ready)
+                    # await self.__auto_save_history()
 
                 # Extract metrics from response
                 metrics = self._extract_metrics(response)
@@ -741,7 +747,7 @@ class OllamaWrapper:
             raise HTTPException(status_code=404, detail=f"Server {server_name} not connected")
 
     async def _load_history(self, file_name: str) -> None:
-        """Load message history from a file."""
+        """Load message history from a file (async)."""
         dir = Path('messages_history')
 
         if not dir.exists():
@@ -753,13 +759,13 @@ class OllamaWrapper:
             file_path = Path(file_name)
 
         try:
-            self.message_history.load(file_name)
+            await self.message_history.load(file_name)
             return {"status_code": 200, "detail": f"History loaded from {file_name}"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Load history failed: {e}")
 
     async def _save_history(self, file_name: str, overwrite: bool=False) -> None:
-        """Save current message history to a file."""
+        """Save current message history to a file (async)."""
         # Parse the file path and change the extension to json if necessary
         dir = Path('messages_history')
         if not dir.exists():
@@ -774,7 +780,7 @@ class OllamaWrapper:
             raise HTTPException(status_code=500, detail=f"Save history failed: file {file_name} already exists. Use overwrite option to save using the same file name.")
 
         try:
-            self.message_history.save(file_name)
+            await self.message_history.save(file_name)
             return {"status_code": 200, "detail": f"History saved to {file_name}"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Save history failed: {e}")
