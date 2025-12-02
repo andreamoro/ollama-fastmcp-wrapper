@@ -313,13 +313,22 @@ class TestMessageHistoryTrimming:
     """Test message history trimming and summarization"""
 
     @pytest.mark.asyncio
-    @pytest.mark.slow
-    @pytest.mark.skip(reason="Slow test - requires Ollama server. Run with: pytest -m slow")
+    @pytest.mark.skip(reason="Too slow - requires Ollama and takes 60+ seconds")
     async def test_history_preserves_data_after_trim(self, temp_history_file):
         """Test that save/load works correctly after history trimming
 
-        NOTE: This test requires a running Ollama server and is SLOW (20+ seconds).
-        Run explicitly with: pytest -m slow tests/test_async_history.py
+        SKIPPED: This test requires a running Ollama server and is extremely slow (60+ seconds)
+        because it triggers multiple summarization calls. Not practical for regular testing.
+
+        The test verifies that:
+        - History can be saved after trimming occurs
+        - Summary is preserved across save/load
+        - Message count matches expected trimmed size
+
+        If you need to test this manually:
+        1. Uncomment the @pytest.mark.skip line
+        2. Run: pytest -m slow tests/test_async_history.py
+        3. Wait 1-2 minutes for Ollama to process
         """
         # Create history with small max_messages to trigger trimming
         history = MessageHistory(
