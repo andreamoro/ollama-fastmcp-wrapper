@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Configuration**: Removed deprecated `server_config.toml` file
+  - All configuration now uses `wrapper_config.toml` exclusively
+  - Updated documentation to reference the correct config file
+
 ## [0.6.2] - 2025-12-01
 
 ### Added

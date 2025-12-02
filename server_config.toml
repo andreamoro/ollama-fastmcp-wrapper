@@ -1,9 +1,0 @@
-# Ollama-FastMCP Wrapper Configuration
-
-# Wrapper settings (optional - defaults will be used if not specified)
-[wrapper]
-transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
-host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
-port = 8000                     # Server port (default: 8000)
-history_file = ""               # Path to conversation history file (default: none)
-overwrite_history = false       # Overwrite history file on exit (default: false)

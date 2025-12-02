@@ -59,7 +59,7 @@ python mcp_servers/ipinfo_server.py
 
 ## Running Servers
 
-Both servers read configuration from `server_config.toml` in the project root.
+Both servers read configuration from `wrapper_config.toml` in the project root.
 
 **Start individual server:**
 ```bash
@@ -85,12 +85,12 @@ To create a new MCP server:
    - Initialize with `mcp = FastMCP("server_name")`
    - Define tools using `@mcp.tool()` decorator
    - Load config and start server in `if __name__ == "__main__":`
-3. Add server configuration to `server_config.toml`
+3. Add server configuration to `wrapper_config.toml`
 4. Test the server independently before using with wrapper
 
 ## Configuration Format
 
-Add your server to `server_config.toml`:
+Add your server to `wrapper_config.toml`:
 
 ```toml
 [[servers]]

@@ -302,7 +302,7 @@ Version 0.4.0 introduces a separated configuration structure:
 
 Command-line arguments take precedence over config file settings:
 - If you specify `--host` or `--port` on the command line, those values will be used
-- If not specified on command line, values from `server_config.toml` will be used
+- If not specified on command line, values from `wrapper_config.toml` will be used
 - If not in config file, default values will be used
 
 ### Transport Methods

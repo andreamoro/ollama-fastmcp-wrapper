@@ -6,7 +6,6 @@ import requests
 import time
 import json
 from pathlib import Path
-from datetime import datetime
 from demo_config import API_URL
 
 DEFAULT_PROMPT = "Explain what a binary search algorithm does in one sentence."
@@ -228,12 +227,6 @@ def select_temperatures():
         # Select all original (temp, desc) tuples from the sorted list
         selected = [(t, d) for r, t, d in sortable_configs]
     elif user_input == 'default' or user_input == '':
-        # Map the original DEFAULT_TEMPERATURE_TESTS keys to their (temp, desc)
-        default_tuples = [ALL_TEMPERATURE_CONFIGS[k] for k in DEFAULT_TEMPERATURE_TESTS]
-
-        # Now, ensure the selected default tests are also sorted numerically
-        # Find the items in the sorted list that match the default tuples
-
         # This is a cleaner way: filter the fully sorted list based on the numerical default values
         default_resolved_values = [get_resolved_temperature(ALL_TEMPERATURE_CONFIGS[k][0]) for k in DEFAULT_TEMPERATURE_TESTS]
 
