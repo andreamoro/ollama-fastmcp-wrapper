@@ -56,11 +56,26 @@ Before merging `feature/async-conversation-history` branch, ensure all tests pas
    - Missing files handled gracefully
    - No blocking during app initialization
 
-### TODO
+## Test Results
 
-- [ ] Implement all test cases marked with `# TODO: Implement`
-- [ ] Add test dependencies to `pyproject.toml`
-- [ ] Run full test suite
+Test results are automatically saved to `tests/test_results/` after each test run:
+
+- **`latest.md`** - Most recent test report (human-readable)
+- **`test_report_TIMESTAMP.md`** - Markdown reports with timing analysis
+- **`test_report_TIMESTAMP.json`** - Detailed JSON reports for CI/CD
+- **`history_sample_TIMESTAMP.json`** - Sample conversation history files from tests
+
+The `test_results/` directory is gitignored to avoid committing test artifacts.
+
+### Example Report
+
+After running tests, check `tests/test_results/latest.md` for:
+- Test summary (passed/failed/skipped)
+- Individual test results with timing
+- Slowest tests analysis
+- Sample conversation files with actual Ollama summaries
+
+## TODO
+
 - [ ] Add performance benchmarks (async vs sync)
-- [ ] Add integration tests with actual Ollama API
 - [ ] Set up CI/CD to run tests automatically

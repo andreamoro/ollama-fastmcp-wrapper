@@ -15,9 +15,21 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def temp_history_file(tmp_path):
+def temp_history_file(tmp_path, test_results_dir):
     """Create temporary file path for history"""
-    return tmp_path / "test_history.json"
+    # Use tmp_path for test execution
+    temp_file = tmp_path / "test_history.json"
+
+    # After test, copy to test_results for inspection
+    yield temp_file
+
+    # Copy file to test_results if it exists
+    if temp_file.exists():
+        import shutil
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = test_results_dir / f"history_sample_{timestamp}.json"
+        shutil.copy(temp_file, dest)
 
 
 @pytest.fixture

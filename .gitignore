@@ -19,6 +19,7 @@ messages_history/
 # Logs & output files
 *.out
 test_results/
+tests/test_results/
 
 # Custom prompts (intellectual property)
 demos/prompts/*
