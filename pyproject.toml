@@ -25,3 +25,8 @@ test = [
 
 [tool.hatch.build.targets.wheel]
 packages = [".", "mcp_servers"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (requiring Ollama server, deselect with '-m \"not slow\"')",
+]
