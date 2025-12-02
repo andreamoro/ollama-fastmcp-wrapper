@@ -343,6 +343,62 @@ class TestMessageHistoryTrimming:
         assert history2.messages[1]["content"] == "First message"
         assert history2.messages[2]["content"] == "First response"
 
+    @pytest.mark.asyncio
+    @pytest.mark.slow
+    async def test_actual_trimming_with_ollama(self, temp_history_file):
+        """Test actual history trimming with Ollama summarization
+
+        This test triggers real trimming by exceeding max_messages, which calls
+        Ollama to generate a summary. Marked as slow - requires Ollama running.
+
+        Run with: pytest -m slow tests/test_async_history.py -v -s
+        """
+        import time
+
+        print("\n🔍 Testing actual trimming with Ollama summarization...")
+        start_time = time.time()
+
+        # Create history with small max_messages to trigger trimming
+        # Default is 20, we'll use 8 to trigger it faster
+        history = MessageHistory(
+            system_prompt="You are a test assistant.",
+            max_messages=8,
+            summarise_model="llama3.2:3b"
+        )
+        print(f"✓ Created MessageHistory (max_messages=8)")
+
+        # Add enough messages to exceed max_messages and trigger trimming
+        # 8 max + 1 system = 9, so adding 2 more (10 total) should trigger once
+        print(f"📝 Adding 10 messages to trigger trimming...")
+        for i in range(5):
+            history.add("user", f"Test message {i}")
+            history.add("assistant", f"Test response {i}")
+            print(f"   Added pair {i+1}/5, total messages: {len(history.messages)}")
+
+        add_time = time.time() - start_time
+        print(f"✓ Added messages in {add_time:.2f}s")
+        print(f"✓ Trimming occurred: {history.summary is not None}")
+        print(f"✓ Final message count: {len(history.messages)}")
+        if history.summary:
+            print(f"✓ Summary: {history.summary[:80]}...")
+
+        # Verify trimming happened
+        assert history.summary is not None, "Summary should exist after trimming"
+        assert len(history.messages) <= history.max_messages, "Messages should be trimmed"
+
+        # Save and load to verify summary persists
+        await history.save(str(temp_history_file))
+
+        history2 = MessageHistory()
+        await history2.load(str(temp_history_file))
+
+        total_time = time.time() - start_time
+        print(f"\n📊 Test completed in {total_time:.2f}s")
+
+        # Verify summary was preserved
+        assert history2.summary == history.summary
+        assert len(history2.messages) == len(history.messages)
+
 
 # Cleanup fixture to remove test files
 @pytest.fixture(autouse=True)
