@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Async I/O for conversation history**: Converted save/load operations to async
+### In Progress (feature/async-conversation-history branch)
+- **Async I/O for conversation history**: Major refactoring - requires testing before merge
   - Added `aiofiles` dependency for non-blocking file I/O
   - `MessageHistory.save()` and `.load()` are now async methods
   - History loading moved to FastAPI lifespan for proper async support
   - All history endpoints (`/history/load`, `/history/save`, `/history/overwrite`) use async I/O
   - Auto-save functionality disabled (TODO: Consider enabling in future for better persistence)
+  - **⚠️ Breaking changes**: All save/load operations now require `await`
+  - **Testing required**: See `tests/README.md` for test plan before merging
+  - Test suite organized in `tests/test_async_history.py` (implementation pending)
 
 ### Fixed
 - **Configuration**: Removed deprecated `server_config.toml` file
