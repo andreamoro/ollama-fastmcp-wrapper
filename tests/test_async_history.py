@@ -313,45 +313,35 @@ class TestMessageHistoryTrimming:
     """Test message history trimming and summarization"""
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Too slow - requires Ollama and takes 60+ seconds")
-    async def test_history_preserves_data_after_trim(self, temp_history_file):
-        """Test that save/load works correctly after history trimming
+    async def test_history_with_summary_field(self, temp_history_file):
+        """Test that save/load works when summary field exists (without triggering trimming)
 
-        SKIPPED: This test requires a running Ollama server and is extremely slow (60+ seconds)
-        because it triggers multiple summarization calls. Not practical for regular testing.
-
-        The test verifies that:
-        - History can be saved after trimming occurs
-        - Summary is preserved across save/load
-        - Message count matches expected trimmed size
-
-        If you need to test this manually:
-        1. Uncomment the @pytest.mark.skip line
-        2. Run: pytest -m slow tests/test_async_history.py
-        3. Wait 1-2 minutes for Ollama to process
+        This tests async save/load with a manually set summary, avoiding the need
+        to trigger actual Ollama summarization which would make the test very slow.
         """
-        # Create history with small max_messages to trigger trimming
-        history = MessageHistory(
-            system_prompt="Test assistant",
-            max_messages=5
-        )
+        # Create history with messages
+        history = MessageHistory(system_prompt="Test assistant")
+        history.add("user", "First message")
+        history.add("assistant", "First response")
+        history.add("user", "Second message")
+        history.add("assistant", "Second response")
 
-        # Add enough messages to trigger trimming
-        for i in range(10):
-            history.add("user", f"Message {i}")
-            history.add("assistant", f"Response {i}")
+        # Manually set a summary to simulate what trimming would create
+        # This avoids calling Ollama which would be slow
+        history.summary = "Test conversation summary"
 
-        # Save history (including potential summary)
+        # Save history with summary
         await history.save(str(temp_history_file))
 
         # Load into new instance
         history2 = MessageHistory()
         await history2.load(str(temp_history_file))
 
-        # Verify messages loaded correctly
-        assert len(history2.messages) > 0
-        # Summary might exist if trimming occurred
-        assert history2.summary == history.summary
+        # Verify messages and summary preserved
+        assert len(history2.messages) == len(history.messages)
+        assert history2.summary == "Test conversation summary"
+        assert history2.messages[1]["content"] == "First message"
+        assert history2.messages[2]["content"] == "First response"
 
 
 # Cleanup fixture to remove test files
