@@ -123,7 +123,7 @@ class OllamaWrapper:
         self.history_file = history_file
         self.overwrite_history = overwrite_history
         self.config_temperature = config_temperature  # Default temperature from config
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.3.0", lifespan=OllamaWrapper._lifespan)
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.6.6", lifespan=OllamaWrapper._lifespan)
         self.transport = transport
 
         # Load history from file if specified
@@ -141,7 +141,7 @@ class OllamaWrapper:
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.6.2",
+                "version": "0.6.6",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
@@ -160,7 +160,7 @@ class OllamaWrapper:
                     "GET /models": "List installed Ollama models with details",
 
                     "# Servers": "",
-                    "GET /servers": "List available FastMCP servers from config",
+                    "GET /servers": "List connected servers and available servers from config",
                     "POST /servers/{server_name}/connect": "Connect to an MCP server",
                     "POST /servers/{server_name}/disconnect": "Disconnect from an MCP server",
                     "GET /servers/{server_name}/tools": "List available tools for a specific MCP server"
@@ -636,12 +636,9 @@ class OllamaWrapper:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def _list_servers(self) -> dict:
-        """List loaded FastMCP servers with their available tools"""
-        if not fastmcp_clients:
-            return {"servers": {}, "status": "no servers connected"}
-
-        # List connected servers with their tools
-        servers_info = {}
+        """List both connected and available FastMCP servers"""
+        # Build connected servers list
+        connected_servers = {}
         for name in fastmcp_clients.keys():
             tools = fastmcp_tools.get(name, [])
             tool_list = []
@@ -652,12 +649,27 @@ class OllamaWrapper:
                 }
                 tool_list.append(tool_info)
 
-            servers_info[name] = {
+            connected_servers[name] = {
                 "status": "connected",
+                "tools_count": len(tool_list),
                 "tools": tool_list
             }
 
-        return {"servers": servers_info}
+        # Build available servers list (only enabled ones from config)
+        available_servers = {}
+        if mcp_config:
+            for server_name, server_config in mcp_config.servers.items():
+                if server_config.enabled:
+                    available_servers[server_name] = {
+                        "enabled": True,
+                        "host": server_config.host if server_config.host else None,
+                        "port": server_config.port if server_config.port else None
+                    }
+
+        return {
+            "connected": connected_servers,
+            "available": available_servers
+        }
 
     async def _list_models(self) -> dict:
         """List available Ollama models"""

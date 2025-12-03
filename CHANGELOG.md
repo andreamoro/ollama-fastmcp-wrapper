@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2025-12-03
+
+### Fixed
+- **`/servers` endpoint now shows both connected and available servers:**
+  - Returns `connected` object with currently mounted servers and their tools
+  - Returns `available` object with enabled servers from config file
+  - Previously only showed connected servers or empty response
+  - Provides better visibility into the MCP server ecosystem
+
+### Changed
+- **API documentation updated:**
+  - `GET /servers` description now reflects it lists both connected and available servers
+
 ## [0.6.5] - 2025-12-03
 
 ### Added
