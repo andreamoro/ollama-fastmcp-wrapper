@@ -5,23 +5,28 @@ Shows how temperature affects response quality across different model families
 """
 
 import sys
+import argparse
 from datetime import datetime
 from pathlib import Path
 from temperature_test_utils import (
     test_temperature_model,
     format_duration,
     get_available_models,
+    check_wrapper_running,
     get_config_temperature,
     get_config_model,
     get_prompt_from_file_or_input,
     select_temperatures,
-    save_results_to_json,
+    export_results_to_json,
     export_results_to_markdown,
+    append_result_to_markdown,
+    clean_llm_response_data,
     print_summary,
     format_summary_display,
     DEFAULT_PROMPT,
     ALL_TEMPERATURE_CONFIGS,
-    DEFAULT_TEMPERATURE_TESTS
+    DEFAULT_TEMPERATURE_TESTS,
+    HOST
 )
 
 # Get the directory where this script is located
@@ -152,6 +157,9 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
     total_tests = len(selected_models) * len(selected_temps)
     current_test = 0
 
+    # Determine markdown filename once
+    md_filename = Path(output_filename).with_suffix('.md')
+
     for model in selected_models:
         for temp, desc in selected_temps:
             current_test += 1
@@ -159,12 +167,15 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
 
             result = test_temperature_model(model, temp, desc, prompt)
             if result:
+                # Clean the result immediately after generation (source cleaning)
+                result = clean_llm_response_data(result)
+
                 # Add test number and readable elapsed time
                 result['test_number'] = current_test
                 result['elapsed_time_readable'] = format_duration(result['elapsed_time'])
                 all_results.append(result)
 
-                # Save after each test to prevent data loss
+                # Progressive save to both JSON and Markdown after each test
                 partial_results_data = build_results_data(
                     all_results,
                     selected_models,
@@ -174,7 +185,8 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
                     start_time,
                     status="in_progress"
                 )
-                save_results_to_json(partial_results_data, output_filename)
+                export_results_to_json(partial_results_data, output_filename)
+                append_result_to_markdown(result, md_filename, is_first_result=(current_test == 1))
 
     end_time = datetime.now()
     total_duration = (end_time - start_time).total_seconds()
@@ -313,29 +325,81 @@ def display_full_responses(all_results, selected_models, selected_temps):
             print(f"Metrics: {r['metrics'].get('completion_tokens', 0)} tokens @ {r['metrics'].get('tokens_per_second', 0):.2f} TPS")
 
 def main():
+    """
+    Main entry point for multi-model temperature testing.
+
+    Supports both interactive and non-interactive modes:
+    - Interactive: Prompts user for model selection, temperature ranges, and prompt
+    - Non-interactive: Uses command-line arguments for fully automated testing
+
+    Command-line arguments:
+        --prompt: Prompt text or path to prompt file
+        --default: Use default prompt without interactive input
+    """
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Compare multiple Ollama models across different temperature settings',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode (asks for model, temperature, prompt selection)
+  python temperature_test_multi_model.py
+
+  # Specify prompt file
+  python temperature_test_multi_model.py --prompt coreference_resolution.txt
+
+  # Specify prompt text directly
+  python temperature_test_multi_model.py --prompt "Explain quantum computing"
+
+  # Non-interactive mode with default prompt
+  python temperature_test_multi_model.py --default
+
+  # Non-interactive mode with custom prompt file
+  python temperature_test_multi_model.py --default --prompt my_prompt.txt
+        """
+    )
+
+    parser.add_argument(
+        '--prompt',
+        type=str,
+        default=None,
+        help='Prompt text or path to prompt file. Supports filenames (searches demos/prompts/), relative paths, or absolute paths.'
+    )
+
+    parser.add_argument(
+        '--default',
+        action='store_true',
+        help='Non-interactive mode: use default prompt and skip interactive selections'
+    )
+
+    args = parser.parse_args()
+
+    # Set non-interactive mode flag
+    is_non_interactive = args.default
+
     print("=" * 80)
     print("ENHANCED TEMPERATURE TEST - MULTI-MODEL COMPARISON")
     print("=" * 80)
 
-    # Check for non-interactive flag (e.g., `--default`)
-    is_non_interactive = '--default' in sys.argv
+    # Check if wrapper is running before proceeding
+    print(f"\n🔍 Checking wrapper availability at {HOST}...")
+    if not check_wrapper_running():
+        print(f"❌ Error: Ollama-FastMCP wrapper is not running at {HOST}")
+        print(f"\n💡 Please start the wrapper first:")
+        print(f"   uv run python ollama_wrapper.py api")
+        print(f"\n   Or check wrapper_config.toml for the correct host/port settings.")
+        sys.exit(1)
+    print(f"✓ Wrapper is running and accessible")
 
-    # Get prompt (from command line arg, file, or interactive input)
-    # Filter out the script name (sys.argv[0]) and the non-interactive flag ('--default')
-    potential_prompts = [arg for arg in sys.argv[1:] if arg != '--default']
-
-    # The prompt_arg is the first remaining argument, or None if no prompt was supplied.
-    prompt_arg = potential_prompts[0] if potential_prompts else None
-
-    # --- NON-INTERACTIVE PROMPT HANDLING ---
-    if is_non_interactive and not prompt_arg:
-        # In non-interactive mode with no explicit prompt argument, use the default.
+    # Determine prompt based on arguments
+    if is_non_interactive and not args.prompt:
+        # Non-interactive mode with no explicit prompt: use default
         prompt = DEFAULT_PROMPT
         print(f"✓ Using default prompt for non-interactive mode: '{DEFAULT_PROMPT}'")
     else:
-        # Use the utility function, which handles file resolution and interactive fallback.
-        # If prompt_arg is None here, it means we are interactive and will ask the user.
-        prompt = get_prompt_from_file_or_input(prompt_arg)
+        # Interactive or prompt specified: use utility function
+        # Handles file resolution, interactive selection, or direct text
+        prompt = get_prompt_from_file_or_input(args.prompt)
 
     # Get available models
     print("\nFetching available models from Ollama...")
@@ -406,7 +470,7 @@ def main():
     )
 
     # Save the file with the header/metadata immediately!
-    save_results_to_json(initial_results_data, output_filename)
+    export_results_to_json(initial_results_data, output_filename)
     print(f"\n✓ Initial metadata saved to: {output_filename}")
     print(f"Test in progress... Check {output_filename} for incremental results.")
 
@@ -443,10 +507,10 @@ def main():
     print("Note: Results are saved after each test to prevent data loss on interruption.")
     print(f"{'=' * 80}\n")
 
-    # Final save with completed status and markdown export
-    save_results_to_json(test_results, output_filename)
-    print(f"\n✓ Results saved to: {output_filename}")
+    # Final save with completed status and complete markdown export
+    export_results_to_json(test_results, output_filename)
     export_results_to_markdown(test_results, output_filename)
+    print(f"\n✓ Results saved to: {output_filename}")
 
     # Display results
     display_results_by_model(test_results['results'], selected_models)
@@ -463,7 +527,34 @@ def main():
     print("Demo complete!")
 
 if __name__ == "__main__":
-    # Assuming you have a project with a virtual environment managed by uv
-    # You can run this script in the background using:
-    # nohup uv run python your_long_running_script.py &
+    """
+    Script entry point for temperature testing across multiple models.
+
+    This script compares how different Ollama models respond to the same prompt
+    across various temperature settings, providing insights into model behavior.
+
+    Results are saved progressively to both JSON and Markdown formats to prevent
+    data loss on interruption.
+
+    Usage modes:
+        1. Interactive: Run without arguments for guided setup
+           $ python temperature_test_multi_model.py
+
+        2. With prompt file: Specify prompt, interactive model/temp selection
+           $ python temperature_test_multi_model.py --prompt my_prompt.txt
+
+        3. Non-interactive: Fully automated with default settings
+           $ python temperature_test_multi_model.py --default
+
+    Background execution (using uv virtual environment):
+        $ nohup uv run python temperature_test_multi_model.py --default &
+
+        or
+
+        $ nohup uv run python temperature_test_multi_model.py --default --prompt my_file.txt &
+
+    Output files:
+        - demos/test_results/<timestamp>_multi_test_comparison.json
+        - demos/test_results/<timestamp>_multi_test_comparison.md
+    """
     main()

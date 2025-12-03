@@ -171,10 +171,22 @@ if __name__ == "__main__":
     Start the IPInfo MCP server using configuration from mcp_servers_config.toml
 
     Requires token in mcp_servers/mcp_tokens.toml file.
+
+    Usage:
+        python ipinfo_server.py [config_file] [transport]
+
+        config_file: Optional path to config file (default: mcp_servers_config.toml)
+        transport: Optional transport mode - 'stdio' or 'http' (default: auto-detect or 'http')
     """
 
-    # Load configuration from TOML file
-    config_file = sys.argv[1] if len(sys.argv) > 1 else "mcp_servers_config.toml"
+    # Parse command line arguments
+    config_file = "mcp_servers_config.toml"
+    transport_mode = None
+
+    if len(sys.argv) > 1:
+        config_file = sys.argv[1]
+    if len(sys.argv) > 2:
+        transport_mode = sys.argv[2].lower()
 
     try:
         # Load server configuration
@@ -185,24 +197,47 @@ if __name__ == "__main__":
         token_file_path = server_config.get_token_file_path()
         token = get_ipinfo_token(token_file_path)
 
-        # Extract host and port from configuration
-        if server_config.host:
-            import urllib.parse
-            parsed = urllib.parse.urlparse(server_config.host)
-            hostname = parsed.hostname or "localhost"
+        # Determine transport mode
+        # Priority: command line arg > auto-detect from parent process > default to http
+        if transport_mode is None:
+            # Auto-detect: if spawned by wrapper with STDIO, stdin will not be a terminal
+            import os
+            if not os.isatty(0):  # stdin is not a terminal, likely STDIO mode
+                transport_mode = 'stdio'
+            else:
+                transport_mode = 'http'
+
+        # Validate transport mode
+        if transport_mode not in ['stdio', 'http']:
+            print(f"❌ Error: Invalid transport mode '{transport_mode}'. Must be 'stdio' or 'http'.")
+            sys.exit(1)
+
+        if transport_mode == 'stdio':
+            # STDIO mode: communicate via stdin/stdout
+            print(f"🚀 Starting IPInfo MCP Server in STDIO mode...")
+            print(f"📡 Server: {mcp.name}")
+            print(f"📝 Config file: {config_file}")
+            print(f"🔑 API Token: {'*' * (len(token) - 4) + token[-4:]}")
+            mcp.run(transport='stdio')
+
         else:
-            hostname = "localhost"
+            # HTTP mode: start HTTP server
+            # Extract host and port from configuration
+            if server_config.host:
+                import urllib.parse
+                parsed = urllib.parse.urlparse(server_config.host)
+                hostname = parsed.hostname or "localhost"
+            else:
+                hostname = "localhost"
 
-        port = server_config.port if server_config.port else 5001
+            port = server_config.port if server_config.port else 5001
 
-        print(f"🚀 Starting IPInfo MCP Server...")
-        print(f"📡 Server: {mcp.name}")
-        print(f"🔗 Running on: http://{hostname}:{port}")
-        print(f"📝 Config file: {config_file}")
-        print(f"🔑 API Token: {'*' * (len(token) - 4) + token[-4:]}")
-
-        # Start the server
-        mcp.run(transport='http', host=hostname, port=port)
+            print(f"🚀 Starting IPInfo MCP Server in HTTP mode...")
+            print(f"📡 Server: {mcp.name}")
+            print(f"🔗 Running on: http://{hostname}:{port}")
+            print(f"📝 Config file: {config_file}")
+            print(f"🔑 API Token: {'*' * (len(token) - 4) + token[-4:]}")
+            mcp.run(transport='http', host=hostname, port=port)
 
     except ValueError as e:
         print(f"❌ Error: {e}")
@@ -213,7 +248,7 @@ if __name__ == "__main__":
         sys.exit(1)
     except FileNotFoundError:
         print(f"❌ Error: Config file '{config_file}' not found")
-        print("   Usage: python ipinfo_server.py [config_file]")
+        print("   Usage: python ipinfo_server.py [config_file] [transport]")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error starting server: {e}")

@@ -168,19 +168,58 @@ def format_duration(seconds):
         secs = int(seconds % 60)
         return f"{hours}h {minutes}m {secs}s"
 
-def get_available_models():
-    """Fetch available models from the API"""
+def check_wrapper_running():
+    """
+    Check if the Ollama-FastMCP wrapper is running and accessible.
+
+    Returns:
+        bool: True if wrapper is running, False otherwise
+    """
     try:
-        response = requests.get(f"{HOST}/models")
+        response = requests.get(f"{HOST}/", timeout=3)
+        return response.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
+    except requests.exceptions.Timeout:
+        return False
+    except Exception:
+        return False
+
+def get_available_models():
+    """
+    Fetch available models from the API.
+
+    Returns:
+        list: List of model names, or None on error
+
+    Raises:
+        SystemExit: If wrapper is not running
+    """
+    try:
+        response = requests.get(f"{HOST}/models", timeout=5)
         if response.status_code == 200:
             data = response.json()
             return [m['name'] for m in data['models']]
         else:
             print(f"Error fetching models: {response.status_code}")
             return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"\n❌ Error: Cannot connect to Ollama-FastMCP wrapper at {HOST}")
+        print(f"   Connection refused: {e}")
+        print(f"\n💡 Please ensure the wrapper is running:")
+        print(f"   uv run python ollama_wrapper.py api")
+        print(f"\n   Or check wrapper_config.toml for the correct host/port settings.")
+        import sys
+        sys.exit(1)
+    except requests.exceptions.Timeout:
+        print(f"\n❌ Error: Connection to {HOST} timed out")
+        print(f"\n💡 Please check if the wrapper is running and accessible.")
+        import sys
+        sys.exit(1)
     except Exception as e:
-        print(f"Error connecting to API: {e}")
-        return None
+        print(f"\n❌ Error connecting to API: {e}")
+        import sys
+        sys.exit(1)
 
 def print_summary():
     """Print standard temperature testing summary"""
@@ -299,6 +338,42 @@ def resolve_prompt_path(path):
 
     return None
 
+def get_recent_prompts(max_count=5):
+    """
+    Get list of recent prompt files from demos/prompts/ directory.
+
+    Files are selected by most recent modification time, but returned in alphabetical order.
+
+    Args:
+        max_count: Maximum number of recent files to return
+
+    Returns:
+        List of filenames (alphabetically sorted)
+    """
+    demos_dir = Path(__file__).resolve().parent
+    prompts_dir = demos_dir / 'prompts'
+
+    if not prompts_dir.exists():
+        return []
+
+    # Get all text files in prompts directory (exclude .gitkeep, README.md)
+    prompt_files = []
+    for file_path in prompts_dir.iterdir():
+        if file_path.is_file() and file_path.suffix in ['.txt', '.md'] and file_path.name not in ['.gitkeep', 'README.md']:
+            mtime = file_path.stat().st_mtime
+            prompt_files.append((file_path.name, mtime))
+
+    # Sort by modification time to get most recent files
+    prompt_files.sort(key=lambda x: x[1], reverse=True)
+
+    # Take top max_count most recent files
+    recent_files = [name for name, _ in prompt_files[:max_count]]
+
+    # Sort alphabetically for display
+    recent_files.sort()
+
+    return recent_files
+
 def get_prompt_from_file_or_input(prompt_arg=None):
     """Get prompt from file, command line arg, or user input
 
@@ -329,14 +404,35 @@ def get_prompt_from_file_or_input(prompt_arg=None):
     # Ask user interactively
     print("\nPrompt configuration:")
     print("  - Press Enter to use default prompt")
+
+    # Show recent prompts if available
+    recent_prompts = get_recent_prompts(max_count=5)
+    if recent_prompts:
+        print(f"\n  Top {len(recent_prompts)} most recent prompt files by date (alphabetically sorted):")
+        for idx, filename in enumerate(recent_prompts, 1):
+            print(f"    {idx}. {filename}")
+        print("\n  You can:")
+        print(f"    • Enter a number (1-{len(recent_prompts)}) to use a recent prompt")
+        print("    • Enter just the filename (e.g., coreference_resolution.txt)")
+
     print("  - Enter a file path to load from file (supports multiple formats):")
-    print("    • Just filename: coreference_resolution.txt (searches demos/prompts/)")
+    print("    • Just filename: searches demos/prompts/")
     print("    • Relative path: demos/prompts/myfile.txt")
     print("    • Absolute path: /full/path/to/file.txt")
     print("  - Enter text directly to use as prompt")
     print(f"\nDefault prompt: '{DEFAULT_PROMPT}'")
 
-    user_input = input("Prompt (file/text/Enter for default): ").strip()
+    user_input = input("\nPrompt (number/file/text/Enter for default): ").strip()
+
+    # Check if user entered a number (selecting from recent prompts)
+    if user_input.isdigit():
+        idx = int(user_input) - 1
+        if 0 <= idx < len(recent_prompts):
+            user_input = recent_prompts[idx]
+            print(f"Selected recent prompt: {user_input}")
+        else:
+            print(f"Invalid selection. Using default prompt.")
+            return DEFAULT_PROMPT
 
     if user_input == '':
         return DEFAULT_PROMPT
@@ -371,57 +467,220 @@ def format_summary_display(summary, format_type='console'):
     if not summary:
         return ""
 
-    if format_type == 'console':
-        # Console format with bullet points
-        lines = []
-        lines.append("\nPerformance:")
-        lines.append(f"  • Fastest Model: {summary.get('fastest_model', 'N/A')} at temperature {summary.get('fastest_temperature', 'N/A')}")
-        lines.append(f"    - TPS: {summary.get('highest_tps', 'N/A')}")
-        lines.append(f"    - Tokens: {summary.get('fastest_completion_tokens', 'N/A')}")
-        lines.append(f"    - Elapsed Time: {summary.get('fastest_elapsed_time_readable', 'N/A')} ({summary.get('fastest_elapsed_time_s', 'N/A')}s)")
-        lines.append(f"    - Total Duration: {summary.get('fastest_total_duration_readable', 'N/A')} ({summary.get('fastest_total_duration_s', 'N/A')}s)")
-        lines.append(f"  • Average TPS: {summary.get('average_tps', 'N/A')}")
-        lines.append(f"  • Average Tokens: {summary.get('average_tokens', 'N/A')}")
-
-        lines.append("\nResponse Lengths:")
-        lines.append(f"  • Min: {summary.get('min_response_length', 'N/A')} chars")
-        lines.append(f"  • Max: {summary.get('max_response_length', 'N/A')} chars")
-        lines.append(f"  • Avg: {summary.get('avg_response_length', 'N/A')} chars")
-
-        return '\n'.join(lines)
-
-    elif format_type == 'markdown':
-        # Markdown format with headers and lists
-        lines = []
-        lines.append("## Summary Statistics\n")
-
-        # Fastest model section
-        lines.append("### Fastest Model (Highest TPS)\n")
-        lines.append(f"- **Model**: {summary.get('fastest_model', 'N/A')}")
-        lines.append(f"- **Temperature**: {summary.get('fastest_temperature', 'N/A')}")
-        lines.append(f"- **TPS**: {summary.get('highest_tps', 'N/A')}")
-        lines.append(f"- **Tokens**: {summary.get('fastest_completion_tokens', 'N/A')}")
-        lines.append(f"- **Elapsed Time**: {summary.get('fastest_elapsed_time_readable', 'N/A')} ({summary.get('fastest_elapsed_time_s', 'N/A')}s)")
-        lines.append(f"- **Total Duration**: {summary.get('fastest_total_duration_readable', 'N/A')} ({summary.get('fastest_total_duration_s', 'N/A')}s)\n")
-
-        # Averages section
-        lines.append("### Averages\n")
-        lines.append(f"- **Average TPS**: {summary.get('average_tps', 'N/A')}")
-        lines.append(f"- **Average Tokens**: {summary.get('average_tokens', 'N/A')}\n")
-
-        # Response lengths section
-        lines.append("### Response Lengths\n")
-        lines.append(f"- **Min**: {summary.get('min_response_length', 'N/A')} chars")
-        lines.append(f"- **Max**: {summary.get('max_response_length', 'N/A')} chars")
-        lines.append(f"- **Avg**: {summary.get('avg_response_length', 'N/A')} chars")
-
-        return '\n'.join(lines)
-
+    # Define format tokens based on output type
+    if format_type == 'markdown':
+        h2 = '##'
+        h3 = '###'
+        bullet = '-'
+        bold_start = '**'
+        bold_end = '**'
+        section_sep = '\n'
+    elif format_type == 'console':
+        h2 = '\n'
+        h3 = '  •'
+        bullet = '    -'
+        bold_start = ''
+        bold_end = ''
+        section_sep = '\n'
     else:
         raise ValueError(f"Unsupported format_type: {format_type}")
 
-def save_results_to_json(results_data, filename):
-    """Save test results to JSON file, ensuring the output directory exists."""
+    # Build content using format tokens - specular structure for both formats
+    lines = []
+    lines.append(f"{h2} Performance Statistics{section_sep}")
+
+    # Fastest model section - identical structure for both formats
+    lines.append(f"{h3} Fastest Model (Highest TPS){section_sep}")
+    lines.append(f"{bullet} {bold_start}Model{bold_end}: {summary.get('fastest_model', 'N/A')}")
+    lines.append(f"{bullet} {bold_start}Temperature{bold_end}: {summary.get('fastest_temperature', 'N/A')}")
+    lines.append(f"{bullet} {bold_start}TPS{bold_end}: {summary.get('highest_tps', 'N/A')}")
+    lines.append(f"{bullet} {bold_start}Tokens{bold_end}: {summary.get('fastest_completion_tokens', 'N/A')}")
+    lines.append(f"{bullet} {bold_start}Elapsed Time{bold_end}: {summary.get('fastest_elapsed_time_readable', 'N/A')} ({summary.get('fastest_elapsed_time_s', 'N/A')}s)")
+    lines.append(f"{bullet} {bold_start}Total Duration{bold_end}: {summary.get('fastest_total_duration_readable', 'N/A')} ({summary.get('fastest_total_duration_s', 'N/A')}s){section_sep}")
+
+    # Averages section - identical structure for both formats
+    lines.append(f"{h3} Averages{section_sep}")
+    lines.append(f"{bullet} {bold_start}Average TPS{bold_end}: {summary.get('average_tps', 'N/A')}")
+    lines.append(f"{bullet} {bold_start}Average Tokens{bold_end}: {summary.get('average_tokens', 'N/A')}{section_sep}")
+
+    # Response lengths section - identical structure for both formats
+    lines.append(f"{h3} Response Lengths{section_sep}")
+    lines.append(f"{bullet} {bold_start}Min{bold_end}: {summary.get('min_response_length', 'N/A')} chars")
+    lines.append(f"{bullet} {bold_start}Max{bold_end}: {summary.get('max_response_length', 'N/A')} chars")
+    lines.append(f"{bullet} {bold_start}Avg{bold_end}: {summary.get('avg_response_length', 'N/A')} chars")
+
+    return '\n'.join(lines)
+
+
+def clean_llm_response_data(data):
+    """
+    Clean LLM response data by removing duplicate keys in nested JSON.
+
+    Some LLMs (e.g., gemma2:2b) generate malformed JSON with duplicate keys
+    in their responses, such as:
+        {"context": "first", "context": "second"}
+
+    This function recursively cleans such duplicates from the data structure.
+    When duplicate keys exist, Python's json.loads() keeps the last occurrence.
+
+    Args:
+        data: The data structure to clean (dict, list, str, or primitive)
+
+    Returns:
+        Cleaned data structure with duplicate keys removed
+
+    Note:
+        This should be applied to individual test results immediately after
+        generation to ensure all_results contains only clean data.
+    """
+    if isinstance(data, dict):
+        # Process dict - recursively clean nested structures
+        return {key: clean_llm_response_data(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        # Recursively clean list items
+        return [clean_llm_response_data(item) for item in data]
+    elif isinstance(data, str):
+        # Check if string contains JSON (common in LLM responses)
+        stripped = data.strip()
+        if stripped.startswith('{') or stripped.startswith('['):
+            try:
+                parsed = json.loads(stripped)
+                cleaned = clean_llm_response_data(parsed)
+                return json.dumps(cleaned)
+            except (json.JSONDecodeError, ValueError):
+                # Not valid JSON, return as-is
+                pass
+        return data
+    else:
+        # Primitive types (int, float, bool, None) - return as-is
+        return data
+
+
+def format_metadata_section(meta, format_type='markdown'):
+    """
+    Format metadata section for text export (markdown, plain text, etc.).
+
+    Note: JSON export doesn't use this - it uses json.dump() directly.
+
+    Args:
+        meta: test_metadata dict from results_data
+        format_type: 'markdown' for now (extensible to 'html', 'text', etc.)
+
+    Returns:
+        Formatted string for metadata section
+    """
+    if format_type == 'markdown':
+        h2 = '##'
+        bullet = '-'
+        bold_start = '**'
+        bold_end = '**'
+    else:
+        raise ValueError(f"Unsupported format_type: {format_type}")
+
+    lines = [
+        f"{h2} Test Information\n",
+        f"{bullet} {bold_start}Start Time{bold_end}: {meta['start_timestamp']}",
+        f"{bullet} {bold_start}End Time{bold_end}: {meta['end_timestamp']}",
+        f"{bullet} {bold_start}Total Duration{bold_end}: {meta['total_duration_readable']}",
+        f"{bullet} {bold_start}Prompt{bold_end}: {meta['prompt']}",
+        f"{bullet} {bold_start}Models Tested{bold_end}: {', '.join(meta['models_tested'])}",
+        f"{bullet} {bold_start}Temperatures Tested{bold_end}: {', '.join(map(str, meta['temperatures_tested']))}",
+        f"{bullet} {bold_start}Total Tests{bold_end}: {meta['total_tests']}\n"
+    ]
+    return '\n'.join(lines)
+
+
+def format_summary_table_header(format_type='markdown'):
+    """
+    Format summary table header for text export.
+
+    Note: JSON export doesn't use this - it uses json.dump() directly.
+    """
+    if format_type == 'markdown':
+        return (
+            "## Summary Table\n\n"
+            "| Test # | Model | Temperature | TPS | Tokens | Elapsed Time | Total Duration | Description |\n"
+            "|--------|-------|-------------|-----|--------|--------------|----------------|-------------|\n"
+        )
+    else:
+        raise ValueError(f"Unsupported format_type: {format_type}")
+
+
+def format_summary_table_row(result, format_type='markdown'):
+    """
+    Format a single summary table row for text export.
+
+    Note: JSON export doesn't use this - it uses json.dump() directly.
+
+    Args:
+        result: Single test result dict
+        format_type: 'markdown' for now (extensible to other text formats)
+
+    Returns:
+        Formatted string for one table row
+    """
+    test_num = result.get('test_number', 'N/A')
+    model = result['model']
+    temp = result['temperature']
+    tps = result['metrics'].get('tokens_per_second', 0)
+    tokens = result['metrics'].get('completion_tokens', 0)
+    elapsed = result.get('elapsed_time_readable', format_duration(result['elapsed_time']))
+    total_dur = format_duration(result['metrics'].get('total_duration_s', 0))
+    desc = result['description']
+
+    if format_type == 'markdown':
+        return f"| {test_num} | {model} | {temp} | {tps:.2f} | {tokens} | {elapsed} | {total_dur} | {desc} |\n"
+    else:
+        raise ValueError(f"Unsupported format_type: {format_type}")
+
+
+def format_detailed_response(result, format_type='markdown'):
+    """
+    Format detailed response section for a single test result (text export only).
+
+    Note: JSON export doesn't use this - it uses json.dump() directly.
+
+    Args:
+        result: Single test result dict
+        format_type: 'markdown' for now (extensible to other text formats)
+
+    Returns:
+        Formatted string for detailed response
+    """
+    test_num = result.get('test_number', 'N/A')
+    tps = result['metrics'].get('tokens_per_second', 0)
+    tokens = result['metrics'].get('completion_tokens', 0)
+    elapsed = result.get('elapsed_time_readable', format_duration(result['elapsed_time']))
+    total_dur = format_duration(result['metrics'].get('total_duration_s', 0))
+
+    if format_type == 'markdown':
+        h3 = '###'
+        bullet = '-'
+        bold_start = '**'
+        bold_end = '**'
+
+        lines = [
+            f"{h3} Test #{test_num}: {result['model']} - Temperature {result['temperature']} ({result['description']})\n",
+            f"{bold_start}Response:{bold_end}\n> {result['response']}\n",
+            f"{bold_start}Metrics:{bold_end}",
+            f"{bullet} TPS: {tps:.2f}",
+            f"{bullet} Tokens: {tokens}",
+            f"{bullet} Elapsed Time: {elapsed}",
+            f"{bullet} Total Duration: {total_dur}\n"
+        ]
+        return '\n'.join(lines)
+    else:
+        raise ValueError(f"Unsupported format_type: {format_type}")
+
+
+def export_results_to_json(results_data, filename):
+    """
+    Export test results to JSON file, ensuring the output directory exists.
+
+    Args:
+        results_data: Clean test results data (should be pre-cleaned at source)
+        filename: Path to the output JSON file
+    """
 
     filepath = Path(filename)
     # Use Path.parent and Path.mkdir() for robust directory creation
@@ -430,10 +689,58 @@ def save_results_to_json(results_data, filename):
     with open(filename, 'w') as f:
         json.dump(results_data, f, indent=2)
 
-def export_results_to_markdown(results_data, json_filename):
-    """Export results to markdown format"""
 
+def append_result_to_markdown(result, md_filename, is_first_result=False):
+    """
+    Append a single test result to markdown file for progressive updates.
+
+    Args:
+        result: Single test result dict (should be pre-cleaned)
+        md_filename: Path to the markdown file
+        is_first_result: If True, creates file with headers; if False, appends to existing
+    """
+    md_path = Path(md_filename)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+
+    mode = 'w' if is_first_result else 'a'
+
+    with open(md_filename, mode) as f:
+        if is_first_result:
+            # Initialize file with header and table header
+            f.write("# Temperature Test Results\n\n")
+            f.write(format_summary_table_header())
+
+        # Append summary table row using centralized formatter
+        f.write(format_summary_table_row(result))
+
+
+def convert_json_to_markdown(json_filename):
+    """
+    Standalone utility to convert a saved JSON results file to markdown format.
+
+    This function reads an existing JSON file and generates a complete markdown
+    export. It's designed for maintenance tasks such as:
+    - Regenerating markdown from edited/cleaned JSON files
+    - Batch conversion of old JSON test results
+    - Recovery when markdown files are corrupted or lost
+
+    Args:
+        json_filename: Path to the JSON results file
+
+    Returns:
+        Path to the generated markdown file
+
+    Note:
+        This function is not used in the normal progressive export workflow.
+        During normal test execution, markdown is generated progressively
+        using append_result_to_markdown().
+    """
     json_path = Path(json_filename)
+
+    # Load JSON data
+    with open(json_filename, 'r') as f:
+        results_data = json.load(f)
+
     md_filename = json_path.with_suffix('.md')
     md_filename.parent.mkdir(parents=True, exist_ok=True)
 
@@ -441,52 +748,89 @@ def export_results_to_markdown(results_data, json_filename):
         # Header
         f.write("# Temperature Test Results\n\n")
 
-        # Metadata
-        meta = results_data['test_metadata']
-        f.write("## Test Information\n\n")
-        f.write(f"- **Start Time**: {meta['start_timestamp']}\n")
-        f.write(f"- **End Time**: {meta['end_timestamp']}\n")
-        f.write(f"- **Total Duration**: {meta['total_duration_readable']}\n")
-        f.write(f"- **Prompt**: {meta['prompt']}\n")
-        f.write(f"- **Models Tested**: {', '.join(meta['models_tested'])}\n")
-        f.write(f"- **Temperatures Tested**: {', '.join(map(str, meta['temperatures_tested']))}\n")
-        f.write(f"- **Total Tests**: {meta['total_tests']}\n\n")
+        # Metadata using centralized formatter
+        f.write(format_metadata_section(results_data['test_metadata']))
+        f.write("\n")
 
-        # Summary table
-        f.write("## Summary Table\n\n")
-        f.write("| Test # | Model | Temperature | TPS | Tokens | Elapsed Time | Total Duration | Description |\n")
-        f.write("|--------|-------|-------------|-----|--------|--------------|----------------|-------------|\n")
-
+        # Summary table using centralized formatters
+        f.write(format_summary_table_header())
         for result in results_data['results']:
-            test_num = result.get('test_number', 'N/A')
-            model = result['model']
-            temp = result['temperature']
-            tps = result['metrics'].get('tokens_per_second', 0)
-            tokens = result['metrics'].get('completion_tokens', 0)
-            elapsed = result.get('elapsed_time_readable', format_duration(result['elapsed_time']))
-            total_dur = format_duration(result['metrics'].get('total_duration_s', 0))
-            desc = result['description']
+            f.write(format_summary_table_row(result))
 
-            f.write(f"| {test_num} | {model} | {temp} | {tps:.2f} | {tokens} | {elapsed} | {total_dur} | {desc} |\n")
-
-        # Full responses
+        # Detailed responses using centralized formatter
         f.write("\n## Detailed Responses\n\n")
-
         for result in results_data['results']:
-            test_num = result.get('test_number', 'N/A')
-            f.write(f"### Test #{test_num}: {result['model']} - Temperature {result['temperature']} ({result['description']})\n\n")
-            f.write(f"**Response:**\n> {result['response']}\n\n")
-            f.write(f"**Metrics:**\n")
-            f.write(f"- TPS: {result['metrics'].get('tokens_per_second', 0):.2f}\n")
-            f.write(f"- Tokens: {result['metrics'].get('completion_tokens', 0)}\n")
-            f.write(f"- Elapsed Time: {result.get('elapsed_time_readable', format_duration(result['elapsed_time']))}\n")
-            f.write(f"- Total Duration: {format_duration(result['metrics'].get('total_duration_s', 0))}\n\n")
+            f.write(format_detailed_response(result))
+            f.write("\n")
 
-        # Summary insights - use centralized formatting function
+        # Summary insights
         if 'summary' in results_data and results_data['summary']:
             summary_text = format_summary_display(results_data['summary'], format_type='markdown')
             f.write(summary_text)
             f.write('\n')
 
-    print(f"✓ Markdown export saved to: {md_filename}")
+    print(f"✓ Markdown converted from JSON: {md_filename}")
+    return md_filename
+
+
+def export_results_to_markdown(results_data, json_filename):
+    """
+    Finalize the progressive markdown export by adding metadata and detailed sections.
+
+    This function completes the progressive markdown file that was built by
+    append_result_to_markdown(). It prepends metadata and appends detailed
+    responses and summary sections.
+
+    Args:
+        results_data: Complete test results data (from centralized clean data bag)
+        json_filename: Path to the JSON file (used to determine markdown filename)
+
+    Returns:
+        Path to the finalized markdown file
+    """
+    json_path = Path(json_filename)
+    md_filename = json_path.with_suffix('.md')
+
+    # Read existing progressive content (summary table)
+    existing_content = ""
+    if md_filename.exists():
+        with open(md_filename, 'r') as f:
+            existing_content = f.read()
+
+    # Now rewrite with complete structure
+    with open(md_filename, 'w') as f:
+        # Header
+        f.write("# Temperature Test Results\n\n")
+
+        # Metadata using centralized formatter
+        f.write(format_metadata_section(results_data['test_metadata']))
+        f.write("\n")
+
+        # Write existing summary table (skip the old header if present)
+        if "## Summary Table" in existing_content:
+            # Extract from "## Summary Table" onwards
+            table_start = existing_content.find("## Summary Table")
+            existing_content = existing_content[table_start:]
+            f.write(existing_content)
+            f.write("\n")
+        else:
+            # Fallback: regenerate summary table using centralized formatters
+            f.write(format_summary_table_header())
+            for result in results_data['results']:
+                f.write(format_summary_table_row(result))
+            f.write("\n")
+
+        # Detailed responses using centralized formatter
+        f.write("## Detailed Responses\n\n")
+        for result in results_data['results']:
+            f.write(format_detailed_response(result))
+            f.write("\n")
+
+        # Summary insights
+        if 'summary' in results_data and results_data['summary']:
+            summary_text = format_summary_display(results_data['summary'], format_type='markdown')
+            f.write(summary_text)
+            f.write('\n')
+
+    print(f"✓ Markdown export finalized: {md_filename}")
     return md_filename

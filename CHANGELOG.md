@@ -7,6 +7,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2025-12-03
+
+### Fixed
+- **Temperature test wrapper availability checking:**
+  - Added `check_wrapper_running()` function to test wrapper availability before execution
+  - `get_available_models()` now exits with clear error message if wrapper is not running
+  - Added early wrapper check in `temperature_test_multi_model.py` to fail fast
+  - Prevents scripts from hanging indefinitely with connection refused errors
+  - Provides actionable error messages guiding users to start the wrapper
+- **Missing variable definition in temperature test:**
+  - Fixed `NameError` where `is_non_interactive` variable was used but not defined
+  - Variable now properly set from `args.default` after argument parsing
+
+### Changed
+- **Refactored `demo_config.py`:**
+  - Replaced `os.path` with `pathlib.Path` for modern path handling
+  - Improved documentation with detailed docstring
+  - More Pythonic and maintainable code structure
+
+## [0.6.7] - 2025-12-03
+
+### Fixed
+- **STDIO transport support in MCP servers:**
+  - Fixed long-standing bug where `math_server.py` and `ipinfo_server.py` were hardcoded to HTTP transport
+  - Servers now properly detect and use transport mode (stdio or http)
+  - Auto-detection: if stdin is not a terminal, assumes STDIO mode
+  - Manual override via command-line argument: `python server.py [config] [transport]`
+  - Resolves transport mode mismatch between wrapper and MCP servers
+
+## [0.6.6] - 2025-12-03
+
+### Fixed
+- **`/servers` endpoint now shows both connected and available servers:**
+  - Returns `connected` object with currently mounted servers and their tools
+  - Returns `available` object with enabled servers from config file
+  - Previously only showed connected servers or empty response
+  - Provides better visibility into the MCP server ecosystem
+
+### Changed
+- **API documentation updated:**
+  - `GET /servers` description now reflects it lists both connected and available servers
+
+## [0.6.5] - 2025-12-03
+
+### Added
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Added `argparse` support with `--prompt` argument to specify prompt file or text via command line
+  - Added `--default` argument for non-interactive mode
+  - Added comprehensive help text with usage examples
+  - Added detailed code documentation in main() and __main__ entry point
+
+### Changed
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - **BREAKING**: Prompt must now be specified with `--prompt` flag instead of positional argument
+  - Old: `python script.py prompt_file.txt --default`
+  - New: `python script.py --prompt prompt_file.txt --default`
+
+## [0.6.4] - 2025-12-03
+
+### Added
+- **Temperature test utilities (`demos/temperature_test_utils.py`):**
+  - Added `clean_llm_response_data()` function to handle duplicate JSON keys from malformed LLM outputs (e.g., gemma2:2b)
+  - Added `get_recent_prompts()` to list top 5 most recent prompt files alphabetically ordered
+  - Interactive prompt selection now supports:
+    - Selecting recent prompts by number (1-5)
+    - Direct filename entry
+    - Custom text input
+  - Added `append_result_to_markdown()` for progressive markdown export during tests
+  - Added `convert_json_to_markdown()` standalone utility for regenerating markdown from JSON
+  - Centralized format functions with format tokens (DRY principle):
+    - `format_metadata_section()`
+    - `format_summary_table_header()`
+    - `format_summary_table_row()`
+    - `format_detailed_response()`
+  - Specular output structure across console and markdown formats
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Progressive markdown export alongside JSON during test execution
+- **Wrapper configuration (`wrapper_config.toml`, `wrapper_config.py`):**
+  - Added `max_history_messages` config parameter (default: 20) to control conversation summarization threshold
+  - Configurable when `MessageHistory` triggers conversation summarization
+- **Architecture improvements:**
+  - LLM responses cleaned at source (immediately after generation) for efficiency
+  - Progressive export to both JSON and Markdown formats
+  - Text formatters use tokens (h2, bullet, bold) for consistent, maintainable code
+
+### Changed
+- **Temperature test utilities (`demos/temperature_test_utils.py`):**
+  - Renamed `save_results_to_json()` → `export_results_to_json()` for naming consistency
+  - Refactored `format_summary_display()` to use format tokens instead of duplicated code blocks
+  - Both JSON and Markdown now receive clean data (no duplicate processing)
+- **Ollama wrapper (`ollama_wrapper.py`):**
+  - `OllamaWrapper.__init__()` now accepts `max_history_messages` parameter
+  - `MessageHistory` max_messages threshold is now configurable via config file
+
+### Fixed
+- **LLM response handling**: Duplicate JSON keys in LLM outputs are now cleaned before export
+  - Some models (e.g., gemma2:2b) generate malformed JSON with duplicate keys
+  - Cleaning happens once at source for efficiency
+
+## [0.6.3] - 2025-12-02
+
 ### In Progress (feature/async-conversation-history branch)
 - **Async I/O for conversation history**: Major refactoring - requires testing before merge
   - Added `aiofiles` dependency for non-blocking file I/O

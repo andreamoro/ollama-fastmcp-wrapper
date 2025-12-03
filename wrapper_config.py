@@ -12,6 +12,7 @@ Configuration Structure in TOML:
     history_file = ""            # Path to conversation history file
     overwrite_history = false    # Whether to overwrite existing history file
     model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
+    max_history_messages = 20    # Maximum messages before summarization kicks in
 
 Transport Modes:
     - HTTP: Wrapper connects to independently-running MCP servers via HTTP.
@@ -43,6 +44,7 @@ class WrapperConfig:
         history_file: Optional path to load/save conversation history
         overwrite_history: If true, overwrite history file on exit instead of error
         model: Dictionary with model settings (default model name, temperature, etc.)
+        max_history_messages: Maximum number of messages before summarization kicks in
     """
     transport: str = "HTTP"
     host: str = "0.0.0.0"
@@ -50,6 +52,7 @@ class WrapperConfig:
     history_file: str = ""
     overwrite_history: bool = False
     model: dict = None
+    max_history_messages: int = 20
 
     def __post_init__(self):
         """Set default model configuration if not provided."""

@@ -82,6 +82,36 @@ The `demos/` directory contains comprehensive usage examples in both shell and P
 - **ipinfo_lookup** - IP geolocation queries
 - **server_management** - Connect/disconnect/list servers
 - **history_management** - Conversation persistence
+- **temperature_test_multi_model.py** - Advanced temperature testing across multiple models
+
+### 🌡️ Temperature Testing
+
+The `temperature_test_multi_model.py` script allows comprehensive testing of how different models respond across temperature settings:
+
+```bash
+# Interactive mode (guided setup)
+python demos/temperature_test_multi_model.py
+
+# Specify prompt file
+python demos/temperature_test_multi_model.py --prompt my_prompt.txt
+
+# Non-interactive mode with default settings
+python demos/temperature_test_multi_model.py --default
+
+# View all options
+python demos/temperature_test_multi_model.py --help
+```
+
+**Features:**
+- Compare multiple models with different temperature settings
+- Progressive export to JSON and Markdown formats
+- Interactive prompt selection with recent file suggestions
+- Clean handling of malformed LLM responses
+- Detailed performance metrics and statistics
+
+**Output files:**
+- JSON: Machine-readable results with full test data
+- Markdown: Human-readable formatted report with tables
 
 See [`demos/README.md`](demos/README.md) for detailed instructions and prerequisites.
 
@@ -261,6 +291,7 @@ Version 0.4.0 introduces a separated configuration structure:
    history_file = ""               # Path to conversation history file (default: none)
    overwrite_history = false       # Overwrite history file on exit (default: false)
    model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
+   max_history_messages = 20       # Maximum messages before summarization kicks in (default: 20)
    ```
 
    **Model Settings:**
@@ -269,7 +300,11 @@ Version 0.4.0 introduces a separated configuration structure:
      - Low (0.0-0.3): Consistent, deterministic responses (recommended for factual tasks)
      - Medium (0.7-1.0): Balanced creativity
      - High (1.5-2.0): Very creative, less predictable
-   - Temperature can be overridden per request via API
+     - Temperature can be overridden per request via API
+   - `max_history_messages`: Maximum number of messages before automatic summarization (default: 20)
+     - When the message count exceeds this limit, older messages are summarized to save context
+     - Helps maintain conversation continuity while keeping token usage manageable
+     - Adjust based on your model's context window and use case
 
 2. **MCP Servers Configuration** (`mcp_servers/mcp_servers_config.toml`):
    ```toml
