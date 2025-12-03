@@ -5,6 +5,7 @@ Shows how temperature affects response quality across different model families
 """
 
 import sys
+import argparse
 from datetime import datetime
 from pathlib import Path
 from temperature_test_utils import (
@@ -322,29 +323,68 @@ def display_full_responses(all_results, selected_models, selected_temps):
             print(f"Metrics: {r['metrics'].get('completion_tokens', 0)} tokens @ {r['metrics'].get('tokens_per_second', 0):.2f} TPS")
 
 def main():
+    """
+    Main entry point for multi-model temperature testing.
+
+    Supports both interactive and non-interactive modes:
+    - Interactive: Prompts user for model selection, temperature ranges, and prompt
+    - Non-interactive: Uses command-line arguments for fully automated testing
+
+    Command-line arguments:
+        --prompt: Prompt text or path to prompt file
+        --default: Use default prompt without interactive input
+    """
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Compare multiple Ollama models across different temperature settings',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode (asks for model, temperature, prompt selection)
+  python temperature_test_multi_model.py
+
+  # Specify prompt file
+  python temperature_test_multi_model.py --prompt coreference_resolution.txt
+
+  # Specify prompt text directly
+  python temperature_test_multi_model.py --prompt "Explain quantum computing"
+
+  # Non-interactive mode with default prompt
+  python temperature_test_multi_model.py --default
+
+  # Non-interactive mode with custom prompt file
+  python temperature_test_multi_model.py --default --prompt my_prompt.txt
+        """
+    )
+
+    parser.add_argument(
+        '--prompt',
+        type=str,
+        default=None,
+        help='Prompt text or path to prompt file. Supports filenames (searches demos/prompts/), relative paths, or absolute paths.'
+    )
+
+    parser.add_argument(
+        '--default',
+        action='store_true',
+        help='Non-interactive mode: use default prompt and skip interactive selections'
+    )
+
+    args = parser.parse_args()
+
     print("=" * 80)
     print("ENHANCED TEMPERATURE TEST - MULTI-MODEL COMPARISON")
     print("=" * 80)
 
-    # Check for non-interactive flag (e.g., `--default`)
-    is_non_interactive = '--default' in sys.argv
-
-    # Get prompt (from command line arg, file, or interactive input)
-    # Filter out the script name (sys.argv[0]) and the non-interactive flag ('--default')
-    potential_prompts = [arg for arg in sys.argv[1:] if arg != '--default']
-
-    # The prompt_arg is the first remaining argument, or None if no prompt was supplied.
-    prompt_arg = potential_prompts[0] if potential_prompts else None
-
-    # --- NON-INTERACTIVE PROMPT HANDLING ---
-    if is_non_interactive and not prompt_arg:
-        # In non-interactive mode with no explicit prompt argument, use the default.
+    # Determine prompt based on arguments
+    if args.default and not args.prompt:
+        # Non-interactive mode with no explicit prompt: use default
         prompt = DEFAULT_PROMPT
         print(f"✓ Using default prompt for non-interactive mode: '{DEFAULT_PROMPT}'")
     else:
-        # Use the utility function, which handles file resolution and interactive fallback.
-        # If prompt_arg is None here, it means we are interactive and will ask the user.
-        prompt = get_prompt_from_file_or_input(prompt_arg)
+        # Interactive or prompt specified: use utility function
+        # Handles file resolution, interactive selection, or direct text
+        prompt = get_prompt_from_file_or_input(args.prompt)
 
     # Get available models
     print("\nFetching available models from Ollama...")
@@ -472,7 +512,34 @@ def main():
     print("Demo complete!")
 
 if __name__ == "__main__":
-    # Assuming you have a project with a virtual environment managed by uv
-    # You can run this script in the background using:
-    # nohup uv run python your_long_running_script.py &
+    """
+    Script entry point for temperature testing across multiple models.
+
+    This script compares how different Ollama models respond to the same prompt
+    across various temperature settings, providing insights into model behavior.
+
+    Results are saved progressively to both JSON and Markdown formats to prevent
+    data loss on interruption.
+
+    Usage modes:
+        1. Interactive: Run without arguments for guided setup
+           $ python temperature_test_multi_model.py
+
+        2. With prompt file: Specify prompt, interactive model/temp selection
+           $ python temperature_test_multi_model.py --prompt my_prompt.txt
+
+        3. Non-interactive: Fully automated with default settings
+           $ python temperature_test_multi_model.py --default
+
+    Background execution (using uv virtual environment):
+        $ nohup uv run python temperature_test_multi_model.py --default &
+
+        or
+
+        $ nohup uv run python temperature_test_multi_model.py --default --prompt my_file.txt &
+
+    Output files:
+        - demos/test_results/<timestamp>_multi_test_comparison.json
+        - demos/test_results/<timestamp>_multi_test_comparison.md
+    """
     main()

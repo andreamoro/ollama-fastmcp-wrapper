@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2025-12-03
+
+### Added
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Added `argparse` support with `--prompt` argument to specify prompt file or text via command line
+  - Added `--default` argument for non-interactive mode
+  - Added comprehensive help text with usage examples
+  - Added detailed code documentation in main() and __main__ entry point
+
+### Changed
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - **BREAKING**: Prompt must now be specified with `--prompt` flag instead of positional argument
+  - Old: `python script.py prompt_file.txt --default`
+  - New: `python script.py --prompt prompt_file.txt --default`
+
 ## [0.6.4] - 2025-12-03
 
 ### Added
