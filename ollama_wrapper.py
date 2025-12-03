@@ -115,10 +115,11 @@ class OllamaWrapper:
                 transport:TransportMethod=TransportMethod.HTTP,
                 history_file:str="",
                 overwrite_history:bool=False,
-                config_temperature:float=0.2
+                config_temperature:float=0.2,
+                max_history_messages:int=20
             ):
         self.model = model
-        self.message_history = history or MessageHistory()
+        self.message_history = history or MessageHistory(max_messages=max_history_messages)
         self.history_file = history_file
         self.overwrite_history = overwrite_history
         self.config_temperature = config_temperature  # Default temperature from config
@@ -983,12 +984,16 @@ if __name__ == "__main__":
     # Get temperature from config (with default fallback)
     config_temperature = wrap_config.model.get('temperature', 0.2) if wrap_config.model else 0.2
 
+    # Get max_history_messages from config (with default fallback)
+    max_history_messages = wrap_config.max_history_messages
+
     wrapper = OllamaWrapper(
         model=args.model,
         transport=TransportMethod[transport],
         history_file=history_file,
         overwrite_history=overwrite_history,
-        config_temperature=config_temperature
+        config_temperature=config_temperature,
+        max_history_messages=max_history_messages
         )
 
     # while True:

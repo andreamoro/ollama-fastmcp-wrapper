@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Specular output structure across console and markdown formats
 - **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
   - Progressive markdown export alongside JSON during test execution
+- **Wrapper configuration (`wrapper_config.toml`, `wrapper_config.py`):**
+  - Added `max_history_messages` config parameter (default: 20) to control conversation summarization threshold
+  - Configurable when `MessageHistory` triggers conversation summarization
 - **Architecture improvements:**
   - LLM responses cleaned at source (immediately after generation) for efficiency
   - Progressive export to both JSON and Markdown formats
@@ -37,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Renamed `save_results_to_json()` → `export_results_to_json()` for naming consistency
   - Refactored `format_summary_display()` to use format tokens instead of duplicated code blocks
   - Both JSON and Markdown now receive clean data (no duplicate processing)
+- **Ollama wrapper (`ollama_wrapper.py`):**
+  - `OllamaWrapper.__init__()` now accepts `max_history_messages` parameter
+  - `MessageHistory` max_messages threshold is now configurable via config file
 
 ### Fixed
 - **LLM response handling**: Duplicate JSON keys in LLM outputs are now cleaned before export
