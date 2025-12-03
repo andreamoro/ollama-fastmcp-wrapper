@@ -154,14 +154,14 @@ class OllamaWrapper:
                 except Exception as e:
                     print(f"⚠️  Error disconnecting from {server_name}: {e}")
 
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.6.8", lifespan=lifespan_with_history)
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.7.0", lifespan=lifespan_with_history)
 
         @self.app.get("/")
         async def root():
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.6.8",
+                "version": "0.7.0",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",

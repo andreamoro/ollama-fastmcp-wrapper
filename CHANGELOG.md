@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-03
+
+### Added
+- **Async I/O for conversation history**: Major refactoring for non-blocking file operations
+  - Added `aiofiles` dependency for async file I/O
+  - `MessageHistory.save()` and `.load()` are now async methods
+  - History loading integrated into FastAPI lifespan for proper async support
+  - All history endpoints (`/history/load`, `/history/save`, `/history/overwrite`) use async I/O
+  - Comprehensive test suite with 16 tests covering async operations, concurrency, and error handling
+- **Test infrastructure**:
+  - Added `tests/test_async_history.py` with comprehensive async history tests
+  - Added `tests/conftest.py` with pytest fixtures and test result reporting
+  - Added `tests/README.md` documenting test coverage and usage
+  - Automated test result reporting to `tests/test_results/` directory
+  - Test results exported in both JSON and Markdown formats
+  - Added pytest markers for slow tests (tests requiring Ollama server)
+
+### Changed
+- **MessageHistory**: Save and load operations now use async/await pattern
+- **OllamaWrapper**: Lifespan event now includes async history loading on startup
+- **Breaking change**: All save/load operations now require `await` when called directly
+
+### Fixed
+- **Configuration**: Removed deprecated `server_config.toml` file
+  - All configuration now uses `wrapper_config.toml` exclusively
+  - Updated documentation to reference the correct config file
+
 ## [0.6.8] - 2025-12-03
 
 ### Fixed
@@ -108,19 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.3] - 2025-12-02
 
-### In Progress (feature/async-conversation-history branch)
-- **Async I/O for conversation history**: Major refactoring - requires testing before merge
-  - Added `aiofiles` dependency for non-blocking file I/O
-  - `MessageHistory.save()` and `.load()` are now async methods
-  - History loading moved to FastAPI lifespan for proper async support
-  - All history endpoints (`/history/load`, `/history/save`, `/history/overwrite`) use async I/O
-  - Auto-save functionality disabled (TODO: Consider enabling in future for better persistence)
-  - **⚠️ Breaking changes**: All save/load operations now require `await`
-  - **Testing required**: See `tests/README.md` for test plan before merging
-  - Test suite organized in `tests/test_async_history.py` (implementation pending)
-
 ### Fixed
-- **Configuration**: Removed deprecated `server_config.toml` file
+- **Configuration**: Removed deprecated `server_config.toml` file (superseded by async feature in v0.7.0)
   - All configuration now uses `wrapper_config.toml` exclusively
   - Updated documentation to reference the correct config file
 
