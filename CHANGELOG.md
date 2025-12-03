@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Temperature test utilities (`demos/temperature_test_utils.py`):**
   - Added `clean_llm_response_data()` function to handle duplicate JSON keys from malformed LLM outputs (e.g., gemma2:2b)
+  - Added `get_recent_prompts()` to list top 5 most recent prompt files alphabetically ordered
+  - Interactive prompt selection now supports:
+    - Selecting recent prompts by number (1-5)
+    - Direct filename entry
+    - Custom text input
   - Added `append_result_to_markdown()` for progressive markdown export during tests
   - Added `convert_json_to_markdown()` standalone utility for regenerating markdown from JSON
   - Centralized format functions with format tokens (DRY principle):

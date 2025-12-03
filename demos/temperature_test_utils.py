@@ -299,6 +299,42 @@ def resolve_prompt_path(path):
 
     return None
 
+def get_recent_prompts(max_count=5):
+    """
+    Get list of recent prompt files from demos/prompts/ directory.
+
+    Files are selected by most recent modification time, but returned in alphabetical order.
+
+    Args:
+        max_count: Maximum number of recent files to return
+
+    Returns:
+        List of filenames (alphabetically sorted)
+    """
+    demos_dir = Path(__file__).resolve().parent
+    prompts_dir = demos_dir / 'prompts'
+
+    if not prompts_dir.exists():
+        return []
+
+    # Get all text files in prompts directory (exclude .gitkeep, README.md)
+    prompt_files = []
+    for file_path in prompts_dir.iterdir():
+        if file_path.is_file() and file_path.suffix in ['.txt', '.md'] and file_path.name not in ['.gitkeep', 'README.md']:
+            mtime = file_path.stat().st_mtime
+            prompt_files.append((file_path.name, mtime))
+
+    # Sort by modification time to get most recent files
+    prompt_files.sort(key=lambda x: x[1], reverse=True)
+
+    # Take top max_count most recent files
+    recent_files = [name for name, _ in prompt_files[:max_count]]
+
+    # Sort alphabetically for display
+    recent_files.sort()
+
+    return recent_files
+
 def get_prompt_from_file_or_input(prompt_arg=None):
     """Get prompt from file, command line arg, or user input
 
@@ -329,14 +365,35 @@ def get_prompt_from_file_or_input(prompt_arg=None):
     # Ask user interactively
     print("\nPrompt configuration:")
     print("  - Press Enter to use default prompt")
+
+    # Show recent prompts if available
+    recent_prompts = get_recent_prompts(max_count=5)
+    if recent_prompts:
+        print(f"\n  Top {len(recent_prompts)} most recent prompt files by date (alphabetically sorted):")
+        for idx, filename in enumerate(recent_prompts, 1):
+            print(f"    {idx}. {filename}")
+        print("\n  You can:")
+        print(f"    • Enter a number (1-{len(recent_prompts)}) to use a recent prompt")
+        print("    • Enter just the filename (e.g., coreference_resolution.txt)")
+
     print("  - Enter a file path to load from file (supports multiple formats):")
-    print("    • Just filename: coreference_resolution.txt (searches demos/prompts/)")
+    print("    • Just filename: searches demos/prompts/")
     print("    • Relative path: demos/prompts/myfile.txt")
     print("    • Absolute path: /full/path/to/file.txt")
     print("  - Enter text directly to use as prompt")
     print(f"\nDefault prompt: '{DEFAULT_PROMPT}'")
 
-    user_input = input("Prompt (file/text/Enter for default): ").strip()
+    user_input = input("\nPrompt (number/file/text/Enter for default): ").strip()
+
+    # Check if user entered a number (selecting from recent prompts)
+    if user_input.isdigit():
+        idx = int(user_input) - 1
+        if 0 <= idx < len(recent_prompts):
+            user_input = recent_prompts[idx]
+            print(f"Selected recent prompt: {user_input}")
+        else:
+            print(f"Invalid selection. Using default prompt.")
+            return DEFAULT_PROMPT
 
     if user_input == '':
         return DEFAULT_PROMPT
