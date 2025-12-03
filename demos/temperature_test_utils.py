@@ -168,19 +168,58 @@ def format_duration(seconds):
         secs = int(seconds % 60)
         return f"{hours}h {minutes}m {secs}s"
 
-def get_available_models():
-    """Fetch available models from the API"""
+def check_wrapper_running():
+    """
+    Check if the Ollama-FastMCP wrapper is running and accessible.
+
+    Returns:
+        bool: True if wrapper is running, False otherwise
+    """
     try:
-        response = requests.get(f"{HOST}/models")
+        response = requests.get(f"{HOST}/", timeout=3)
+        return response.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
+    except requests.exceptions.Timeout:
+        return False
+    except Exception:
+        return False
+
+def get_available_models():
+    """
+    Fetch available models from the API.
+
+    Returns:
+        list: List of model names, or None on error
+
+    Raises:
+        SystemExit: If wrapper is not running
+    """
+    try:
+        response = requests.get(f"{HOST}/models", timeout=5)
         if response.status_code == 200:
             data = response.json()
             return [m['name'] for m in data['models']]
         else:
             print(f"Error fetching models: {response.status_code}")
             return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"\n❌ Error: Cannot connect to Ollama-FastMCP wrapper at {HOST}")
+        print(f"   Connection refused: {e}")
+        print(f"\n💡 Please ensure the wrapper is running:")
+        print(f"   uv run python ollama_wrapper.py api")
+        print(f"\n   Or check wrapper_config.toml for the correct host/port settings.")
+        import sys
+        sys.exit(1)
+    except requests.exceptions.Timeout:
+        print(f"\n❌ Error: Connection to {HOST} timed out")
+        print(f"\n💡 Please check if the wrapper is running and accessible.")
+        import sys
+        sys.exit(1)
     except Exception as e:
-        print(f"Error connecting to API: {e}")
-        return None
+        print(f"\n❌ Error connecting to API: {e}")
+        import sys
+        sys.exit(1)
 
 def print_summary():
     """Print standard temperature testing summary"""

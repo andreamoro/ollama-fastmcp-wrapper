@@ -12,6 +12,7 @@ from temperature_test_utils import (
     test_temperature_model,
     format_duration,
     get_available_models,
+    check_wrapper_running,
     get_config_temperature,
     get_config_model,
     get_prompt_from_file_or_input,
@@ -24,7 +25,8 @@ from temperature_test_utils import (
     format_summary_display,
     DEFAULT_PROMPT,
     ALL_TEMPERATURE_CONFIGS,
-    DEFAULT_TEMPERATURE_TESTS
+    DEFAULT_TEMPERATURE_TESTS,
+    HOST
 )
 
 # Get the directory where this script is located
@@ -372,12 +374,25 @@ Examples:
 
     args = parser.parse_args()
 
+    # Set non-interactive mode flag
+    is_non_interactive = args.default
+
     print("=" * 80)
     print("ENHANCED TEMPERATURE TEST - MULTI-MODEL COMPARISON")
     print("=" * 80)
 
+    # Check if wrapper is running before proceeding
+    print(f"\n🔍 Checking wrapper availability at {HOST}...")
+    if not check_wrapper_running():
+        print(f"❌ Error: Ollama-FastMCP wrapper is not running at {HOST}")
+        print(f"\n💡 Please start the wrapper first:")
+        print(f"   uv run python ollama_wrapper.py api")
+        print(f"\n   Or check wrapper_config.toml for the correct host/port settings.")
+        sys.exit(1)
+    print(f"✓ Wrapper is running and accessible")
+
     # Determine prompt based on arguments
-    if args.default and not args.prompt:
+    if is_non_interactive and not args.prompt:
         # Non-interactive mode with no explicit prompt: use default
         prompt = DEFAULT_PROMPT
         print(f"✓ Using default prompt for non-interactive mode: '{DEFAULT_PROMPT}'")

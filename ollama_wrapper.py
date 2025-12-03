@@ -123,7 +123,7 @@ class OllamaWrapper:
         self.history_file = history_file
         self.overwrite_history = overwrite_history
         self.config_temperature = config_temperature  # Default temperature from config
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.6.7", lifespan=OllamaWrapper._lifespan)
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.6.8", lifespan=OllamaWrapper._lifespan)
         self.transport = transport
 
         # Load history from file if specified
@@ -141,7 +141,7 @@ class OllamaWrapper:
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.6.7",
+                "version": "0.6.8",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",

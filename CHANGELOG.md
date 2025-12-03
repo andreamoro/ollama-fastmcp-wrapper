@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2025-12-03
+
+### Fixed
+- **Temperature test wrapper availability checking:**
+  - Added `check_wrapper_running()` function to test wrapper availability before execution
+  - `get_available_models()` now exits with clear error message if wrapper is not running
+  - Added early wrapper check in `temperature_test_multi_model.py` to fail fast
+  - Prevents scripts from hanging indefinitely with connection refused errors
+  - Provides actionable error messages guiding users to start the wrapper
+- **Missing variable definition in temperature test:**
+  - Fixed `NameError` where `is_non_interactive` variable was used but not defined
+  - Variable now properly set from `args.default` after argument parsing
+
+### Changed
+- **Refactored `demo_config.py`:**
+  - Replaced `os.path` with `pathlib.Path` for modern path handling
+  - Improved documentation with detailed docstring
+  - More Pythonic and maintainable code structure
+
 ## [0.6.7] - 2025-12-03
 
 ### Fixed
