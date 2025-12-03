@@ -15,8 +15,10 @@ from temperature_test_utils import (
     get_config_model,
     get_prompt_from_file_or_input,
     select_temperatures,
-    save_results_to_json,
+    export_results_to_json,
     export_results_to_markdown,
+    append_result_to_markdown,
+    clean_llm_response_data,
     print_summary,
     format_summary_display,
     DEFAULT_PROMPT,
@@ -152,6 +154,9 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
     total_tests = len(selected_models) * len(selected_temps)
     current_test = 0
 
+    # Determine markdown filename once
+    md_filename = Path(output_filename).with_suffix('.md')
+
     for model in selected_models:
         for temp, desc in selected_temps:
             current_test += 1
@@ -159,12 +164,15 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
 
             result = test_temperature_model(model, temp, desc, prompt)
             if result:
+                # Clean the result immediately after generation (source cleaning)
+                result = clean_llm_response_data(result)
+
                 # Add test number and readable elapsed time
                 result['test_number'] = current_test
                 result['elapsed_time_readable'] = format_duration(result['elapsed_time'])
                 all_results.append(result)
 
-                # Save after each test to prevent data loss
+                # Progressive save to both JSON and Markdown after each test
                 partial_results_data = build_results_data(
                     all_results,
                     selected_models,
@@ -174,7 +182,8 @@ def run_tests(selected_models, selected_temps, prompt, output_filename, config_t
                     start_time,
                     status="in_progress"
                 )
-                save_results_to_json(partial_results_data, output_filename)
+                export_results_to_json(partial_results_data, output_filename)
+                append_result_to_markdown(result, md_filename, is_first_result=(current_test == 1))
 
     end_time = datetime.now()
     total_duration = (end_time - start_time).total_seconds()
@@ -406,7 +415,7 @@ def main():
     )
 
     # Save the file with the header/metadata immediately!
-    save_results_to_json(initial_results_data, output_filename)
+    export_results_to_json(initial_results_data, output_filename)
     print(f"\n✓ Initial metadata saved to: {output_filename}")
     print(f"Test in progress... Check {output_filename} for incremental results.")
 
@@ -443,10 +452,10 @@ def main():
     print("Note: Results are saved after each test to prevent data loss on interruption.")
     print(f"{'=' * 80}\n")
 
-    # Final save with completed status and markdown export
-    save_results_to_json(test_results, output_filename)
-    print(f"\n✓ Results saved to: {output_filename}")
+    # Final save with completed status and complete markdown export
+    export_results_to_json(test_results, output_filename)
     export_results_to_markdown(test_results, output_filename)
+    print(f"\n✓ Results saved to: {output_filename}")
 
     # Display results
     display_results_by_model(test_results['results'], selected_models)

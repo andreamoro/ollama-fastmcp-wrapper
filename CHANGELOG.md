@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2025-12-03
+
+### Added
+- **Temperature test utilities (`demos/temperature_test_utils.py`):**
+  - Added `clean_llm_response_data()` function to handle duplicate JSON keys from malformed LLM outputs (e.g., gemma2:2b)
+  - Added `append_result_to_markdown()` for progressive markdown export during tests
+  - Added `convert_json_to_markdown()` standalone utility for regenerating markdown from JSON
+  - Centralized format functions with format tokens (DRY principle):
+    - `format_metadata_section()`
+    - `format_summary_table_header()`
+    - `format_summary_table_row()`
+    - `format_detailed_response()`
+  - Specular output structure across console and markdown formats
+- **Temperature test multi-model script (`demos/temperature_test_multi_model.py`):**
+  - Progressive markdown export alongside JSON during test execution
+- **Architecture improvements:**
+  - LLM responses cleaned at source (immediately after generation) for efficiency
+  - Progressive export to both JSON and Markdown formats
+  - Text formatters use tokens (h2, bullet, bold) for consistent, maintainable code
+
+### Changed
+- **Temperature test utilities (`demos/temperature_test_utils.py`):**
+  - Renamed `save_results_to_json()` → `export_results_to_json()` for naming consistency
+  - Refactored `format_summary_display()` to use format tokens instead of duplicated code blocks
+  - Both JSON and Markdown now receive clean data (no duplicate processing)
+
+### Fixed
+- **LLM response handling**: Duplicate JSON keys in LLM outputs are now cleaned before export
+  - Some models (e.g., gemma2:2b) generate malformed JSON with duplicate keys
+  - Cleaning happens once at source for efficiency
+
+## [0.6.3] - 2025-12-02
+
 ### Fixed
 - **Configuration**: Removed deprecated `server_config.toml` file
   - All configuration now uses `wrapper_config.toml` exclusively
