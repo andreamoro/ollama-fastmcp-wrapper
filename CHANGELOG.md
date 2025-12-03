@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2025-12-03
+
+### Fixed
+- **STDIO transport support in MCP servers:**
+  - Fixed long-standing bug where `math_server.py` and `ipinfo_server.py` were hardcoded to HTTP transport
+  - Servers now properly detect and use transport mode (stdio or http)
+  - Auto-detection: if stdin is not a terminal, assumes STDIO mode
+  - Manual override via command-line argument: `python server.py [config] [transport]`
+  - Resolves transport mode mismatch between wrapper and MCP servers
+
 ## [0.6.6] - 2025-12-03
 
 ### Fixed

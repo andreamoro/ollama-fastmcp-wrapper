@@ -37,11 +37,22 @@ if __name__ == "__main__":
              wrapper connects to it via HTTP
 
     Configuration is read from mcp_servers_config.toml [[servers]] section where name="math"
+
+    Usage:
+        python math_server.py [config_file] [transport]
+
+        config_file: Optional path to config file (default: mcp_servers_config.toml)
+        transport: Optional transport mode - 'stdio' or 'http' (default: auto-detect or 'http')
     """
 
-    # Load configuration from TOML file
-    # Default to 'mcp_servers_config.toml' in the current directory
-    config_file = sys.argv[1] if len(sys.argv) > 1 else "mcp_servers_config.toml"
+    # Parse command line arguments
+    config_file = "mcp_servers_config.toml"
+    transport_mode = None
+
+    if len(sys.argv) > 1:
+        config_file = sys.argv[1]
+    if len(sys.argv) > 2:
+        transport_mode = sys.argv[2].lower()
 
     try:
         config = mcpserver_config.Config.from_toml(config_file)
@@ -49,29 +60,47 @@ if __name__ == "__main__":
         # Find this server's configuration by name
         server_config = config["math"]
 
-        # Extract host and port from the configuration
-        # For HTTP transport, the 'host' field contains the full URL
-        # We need to extract just the hostname and use the 'port' field
-        if server_config.host:
-            # Parse the host URL to extract the hostname
-            # Example: "http://localhost:5000/mcp" -> "localhost"
-            import urllib.parse
-            parsed = urllib.parse.urlparse(server_config.host)
-            hostname = parsed.hostname or "localhost"
+        # Determine transport mode
+        # Priority: command line arg > auto-detect from parent process > default to http
+        if transport_mode is None:
+            # Auto-detect: if spawned by wrapper with STDIO, stdin will not be a terminal
+            import os
+            if not os.isatty(0):  # stdin is not a terminal, likely STDIO mode
+                transport_mode = 'stdio'
+            else:
+                transport_mode = 'http'
+
+        # Validate transport mode
+        if transport_mode not in ['stdio', 'http']:
+            print(f"❌ Error: Invalid transport mode '{transport_mode}'. Must be 'stdio' or 'http'.")
+            sys.exit(1)
+
+        if transport_mode == 'stdio':
+            # STDIO mode: communicate via stdin/stdout
+            print(f"🚀 Starting Math MCP Server in STDIO mode...")
+            print(f"📡 Server: {mcp.name}")
+            print(f"📝 Config file: {config_file}")
+            mcp.run(transport='stdio')
+
         else:
-            hostname = "localhost"
+            # HTTP mode: start HTTP server
+            # Extract host and port from the configuration
+            if server_config.host:
+                # Parse the host URL to extract the hostname
+                # Example: "http://localhost:5000/mcp" -> "localhost"
+                import urllib.parse
+                parsed = urllib.parse.urlparse(server_config.host)
+                hostname = parsed.hostname or "localhost"
+            else:
+                hostname = "localhost"
 
-        port = server_config.port if server_config.port else 5000
+            port = server_config.port if server_config.port else 5000
 
-        print(f"🚀 Starting Math MCP Server...")
-        print(f"📡 Server: {mcp.name}")
-        print(f"🔗 Running on: http://{hostname}:{port}")
-        print(f"📝 Config file: {config_file}")
-
-        # Start the server with configuration from file
-        # Note: This always uses HTTP transport. For STDIO transport, the wrapper
-        # spawns this script as a subprocess when transport='STDIO' is configured
-        mcp.run(transport='http', host=hostname, port=port)
+            print(f"🚀 Starting Math MCP Server in HTTP mode...")
+            print(f"📡 Server: {mcp.name}")
+            print(f"🔗 Running on: http://{hostname}:{port}")
+            print(f"📝 Config file: {config_file}")
+            mcp.run(transport='http', host=hostname, port=port)
 
     except KeyError:
         print(f"❌ Error: Server 'math' not found in {config_file}")
@@ -79,7 +108,7 @@ if __name__ == "__main__":
         sys.exit(1)
     except FileNotFoundError:
         print(f"❌ Error: Config file '{config_file}' not found")
-        print("   Usage: python math_server.py [config_file]")
+        print("   Usage: python math_server.py [config_file] [transport]")
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error starting server: {e}")
