@@ -999,6 +999,9 @@ class OllamaWrapper:
                             print("❌ No models installed in Ollama.")
                             continue
 
+                        # Show current model
+                        print(f"\n🔄 Current model: {self.model}")
+
                         # Find similar models (fuzzy match based on current model)
                         similar_models = []
                         if self.model:
@@ -1009,7 +1012,7 @@ class OllamaWrapper:
                         # Decide which list to show for selection
                         if similar_models:
                             # Show only fuzzy matches
-                            print(f"\n📋 Found {len(similar_models)} similar model(s) to current model:")
+                            print(f"\n📋 Found {len(similar_models)} similar model(s):")
                             models_to_select = similar_models
                         else:
                             # Show all models (up to 10)
