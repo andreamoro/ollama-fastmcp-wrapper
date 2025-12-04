@@ -1178,6 +1178,9 @@ if __name__ == "__main__":
     host = host or "0.0.0.0"
     port = port or 8000
 
+    # Get model from args or config (with fallback)
+    model = args.model if args.model else (wrap_config.model.get('default') if wrap_config.model else None)
+
     # Get temperature from config (with default fallback)
     config_temperature = wrap_config.model.get('temperature', 0.2) if wrap_config.model else 0.2
 
@@ -1185,7 +1188,7 @@ if __name__ == "__main__":
     max_history_messages = wrap_config.max_history_messages
 
     wrapper = OllamaWrapper(
-        model=args.model,
+        model=model,
         transport=TransportMethod[transport],
         history_file=history_file,
         overwrite_history=overwrite_history,
