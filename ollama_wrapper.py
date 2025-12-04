@@ -845,6 +845,22 @@ class OllamaWrapper:
 
         uvicorn.run(self.app, host=host, port=port)
 
+    def _display_model_capabilities(self, model_name: str):
+        """Display model capabilities (family, parameters, quantization).
+
+        Args:
+            model_name: The name of the model to display info for
+        """
+        try:
+            model_info = ollama.show(model_name)
+            if 'details' in model_info:
+                details = model_info['details']
+                print(f"   Family: {details.get('family', 'N/A')}")
+                print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+        except:
+            pass  # Don't fail if we can't get details
+
     def run_cli(self):
         """Run as a CLI chat interface.
         In this mode, the wrapper works as a simple chat interface.
@@ -943,6 +959,7 @@ class OllamaWrapper:
                                             print(f"   Family: {details.get('family', 'N/A')}")
                                             print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
                                             print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                                            print("\n")
                                     except:
                                         pass  # Don't fail if we can't get details
                                     break
@@ -1055,17 +1072,7 @@ class OllamaWrapper:
 
                                     print(f"✅ Model changed: {old_model} → {self.model}")
                                     print("🔄 Conversation context reset")
-
-                                    # Show model capabilities
-                                    try:
-                                        model_info = ollama.show(self.model)
-                                        if 'details' in model_info:
-                                            details = model_info['details']
-                                            print(f"   Family: {details.get('family', 'N/A')}")
-                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
-                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
-                                    except:
-                                        pass  # Don't fail if we can't get details
+                                    self._display_model_capabilities(self.model)
                                     break
 
                                 # Try to parse as number
@@ -1080,17 +1087,7 @@ class OllamaWrapper:
 
                                     print(f"✅ Model changed: {old_model} → {self.model}")
                                     print("🔄 Conversation context reset")
-
-                                    # Show model capabilities
-                                    try:
-                                        model_info = ollama.show(self.model)
-                                        if 'details' in model_info:
-                                            details = model_info['details']
-                                            print(f"   Family: {details.get('family', 'N/A')}")
-                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
-                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
-                                    except:
-                                        pass  # Don't fail if we can't get details
+                                    self._display_model_capabilities(self.model)
                                     break
                                 else:
                                     print(f"❌ Please enter a number between 1 and {len(models_to_select)}, a valid model name, or 'c' to cancel")
@@ -1107,17 +1104,7 @@ class OllamaWrapper:
 
                                         print(f"✅ Model changed: {old_model} → {self.model}")
                                         print("🔄 Conversation context reset")
-
-                                        # Show model capabilities
-                                        try:
-                                            model_info = ollama.show(self.model)
-                                            if 'details' in model_info:
-                                                details = model_info['details']
-                                                print(f"   Family: {details.get('family', 'N/A')}")
-                                                print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
-                                                print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
-                                        except:
-                                            pass  # Don't fail if we can't get details
+                                        self._display_model_capabilities(self.model)
                                         break
                                     else:
                                         print(f"❌ Multiple models match '{choice}': {', '.join(matching)}")
