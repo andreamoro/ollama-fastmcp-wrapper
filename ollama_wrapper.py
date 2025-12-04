@@ -999,13 +999,26 @@ class OllamaWrapper:
                             print("❌ No models installed in Ollama.")
                             continue
 
-                        # Limit to 10 models to avoid overwhelming
-                        if len(available_models) <= 10:
-                            print(f"\n📋 Available Ollama models:")
-                            models_to_select = available_models
+                        # Find similar models (fuzzy match based on current model)
+                        similar_models = []
+                        if self.model:
+                            # Extract base name (before colon) for fuzzy matching
+                            model_base = self.model.split(':')[0].lower()
+                            similar_models = [m for m in available_models if model_base in m.lower()]
+
+                        # Decide which list to show for selection
+                        if similar_models:
+                            # Show only fuzzy matches
+                            print(f"\n📋 Found {len(similar_models)} similar model(s) to current model:")
+                            models_to_select = similar_models
                         else:
-                            print(f"\n📋 Available Ollama models ({len(available_models)} total, showing first 10):")
-                            models_to_select = available_models[:10]
+                            # Show all models (up to 10)
+                            if len(available_models) <= 10:
+                                print(f"\n📋 Available Ollama models:")
+                                models_to_select = available_models
+                            else:
+                                print(f"\n📋 Available Ollama models ({len(available_models)} total, showing first 10):")
+                                models_to_select = available_models[:10]
 
                         for idx, model_name in enumerate(models_to_select, 1):
                             print(f"   {idx}. {model_name}")
