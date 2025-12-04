@@ -979,6 +979,7 @@ class OllamaWrapper:
                     print("\n📖 Available CLI commands:")
                     print("  /help                         - Show this help message")
                     print("  /exit or /quit                - Exit the CLI")
+                    print("  /clear                        - Clear conversation context")
                     print("  /model                        - Change the current model interactively")
                     print("  /load <file_name>             - Load conversation history from a file")
                     print("  /save <file_name>             - Save conversation history to a file")
@@ -987,6 +988,12 @@ class OllamaWrapper:
                     print("  - Just type your message to chat with the AI")
                     print("  - Use arrow keys to navigate command history")
                     print("  - Press Ctrl+C to cancel model selection or input")
+                    continue
+
+                # Handle /clear command to reset conversation context
+                if user_input.lower().strip() == "/clear":
+                    self.message_history.reset()
+                    print("🧹 Conversation context cleared")
                     continue
 
                 # Handle /model command for model selection
