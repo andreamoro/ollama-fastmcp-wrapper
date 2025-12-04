@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-12-04
+
+### Added
+- **CLI enhancements for model management**:
+  - Added `/help` command to display all available CLI commands and tips
+  - Added `/model` command for interactive model switching during conversations
+  - Model validation at startup with helpful error messages
+  - Interactive model selection when invalid model detected at startup
+  - Cancel option ('c') for all model selection prompts
+  - Fuzzy matching for similar model names (showing first 10 results)
+  - Model capabilities display (family, parameters, quantization) after selection
+
+### Changed
+- **Conversation context management**:
+  - Conversation history now resets automatically when switching models via `/model` command
+  - Prevents context leakage between different models
+- **Startup messages**:
+  - Changed from listing all commands to simple "Type '/help' for available commands"
+  - Cleaner, less cluttered startup experience
+
+### Fixed
+- **Model configuration handling**:
+  - Fixed bug where CLI mode didn't fall back to `wrapper_config.toml` model when `--model` arg not provided
+  - Added proper validation that model is specified before starting CLI session
+
 ## [0.7.0] - 2025-12-03
 
 ### Added
