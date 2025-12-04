@@ -157,14 +157,32 @@ Compare multiple Ollama models across different temperature settings with intera
 
 **Python:**
 ```bash
-python demos/temperature_test_multi_model.py [prompt_file_or_text]
+# Interactive mode (guided setup)
+python demos/temperature_test_multi_model.py
 
-# Examples:
-python demos/temperature_test_multi_model.py                         # Interactive prompts
-python demos/temperature_test_multi_model.py "Custom prompt"         # Direct prompt
-python demos/temperature_test_multi_model.py coreference_resolution.txt  # Just filename (auto-searches demos/prompts/)
-python demos/temperature_test_multi_model.py demos/prompts/myfile.txt    # Relative path
+# Specify prompt file
+python demos/temperature_test_multi_model.py --prompt my_prompt.txt
+
+# Specify prompt as text directly
+python demos/temperature_test_multi_model.py --prompt "Your custom prompt here"
+
+# Non-interactive mode with default settings
+python demos/temperature_test_multi_model.py --default
+
+# View all options
+python demos/temperature_test_multi_model.py --help
 ```
+
+**Features:**
+- Compare multiple models with different temperature settings
+- Progressive export to JSON and Markdown formats
+- Interactive prompt selection with recent file suggestions
+- Clean handling of malformed LLM responses
+- Detailed performance metrics and statistics
+
+**Output files:**
+- JSON: Machine-readable results with full test data
+- Markdown: Human-readable formatted report with tables
 
 **Interactive Configuration:**
 1. **Prompt Selection**: Use default, enter custom text, or load from file
