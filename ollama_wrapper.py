@@ -154,14 +154,14 @@ class OllamaWrapper:
                 except Exception as e:
                     print(f"⚠️  Error disconnecting from {server_name}: {e}")
 
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.7.0", lifespan=lifespan_with_history)
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.7.1", lifespan=lifespan_with_history)
 
         @self.app.get("/")
         async def root():
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.7.0",
+                "version": "0.7.1",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
@@ -861,35 +861,193 @@ class OllamaWrapper:
         async def chat_session():
             print("💬 Starting Ollama-FastMCP Wrapper CLI...")
 
-            # Display model capabilities
-            if self.model:
-                try:
-                    model_info = ollama.show(self.model)
-                    print(f"\n🤖 Model: {self.model}")
-                    if 'details' in model_info:
-                        details = model_info['details']
-                        print(f"   Family: {details.get('family', 'N/A')}")
-                        print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
-                        print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
-                    if 'model_info' in model_info:
-                        # Show general architecture info if available
-                        arch = model_info['model_info'].get('general.architecture', None)
-                        if arch:
-                            print(f"   Architecture: {arch}")
-                except Exception as e:
-                    print(f"⚠️  Could not fetch model details: {e}")
-            else:
-                print(f"\n🤖 Model: {self.model or 'Not specified'}")
+            # Validate model is specified
+            if not self.model:
+                print("\n❌ Error: No model specified in configuration")
+                print("   Please set 'model.default' in wrapper_config.toml")
+                print("\n   Example:")
+                print("   model = { default = \"llama3.2:3b\", temperature = 0.2 }")
+                import sys
+                sys.exit(1)
 
-            print("\nType:")
-            print("- '/exit' or '/quit' to close the CLI.")
-            print("- '/load <file_name>' to load a previous conversation from a file.")
-            print("- '/save or /overwrite <file_name>' to save the current conversation to a file.")
+            # Validate model exists in Ollama and display capabilities
+            try:
+                model_info = ollama.show(self.model)
+                print(f"\n🤖 Model: {self.model}")
+                if 'details' in model_info:
+                    details = model_info['details']
+                    print(f"   Family: {details.get('family', 'N/A')}")
+                    print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                    print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                if 'model_info' in model_info:
+                    arch = model_info['model_info'].get('general.architecture', None)
+                    if arch:
+                        print(f"   Architecture: {arch}")
+            except Exception as e:
+                print(f"\n❌ Error: Model '{self.model}' not found")
+                print(f"   {e}")
+
+                # Try to show available models and let user select
+                try:
+                    models = ollama.list()
+                    if models['models']:
+                        all_models = [m['model'] for m in models['models']]
+
+                        # Find similar models (fuzzy match)
+                        similar_models = []
+                        if self.model:
+                            # Extract base name (before colon) for fuzzy matching
+                            model_base = self.model.split(':')[0].lower()
+                            similar_models = [m for m in all_models if model_base in m.lower()]
+
+                        # Decide which list to show for selection
+                        if similar_models:
+                            # Show only fuzzy matches
+                            print(f"\n💡 Found {len(similar_models)} similar model(s):")
+                            models_to_select = similar_models
+                        else:
+                            # Show all models (up to 10)
+                            if len(all_models) <= 10:
+                                print(f"\n💡 Available models in Ollama:")
+                                models_to_select = all_models
+                            else:
+                                print(f"\n💡 Available models in Ollama ({len(all_models)} total, showing first 10):")
+                                models_to_select = all_models[:10]
+
+                        # Display numbered list for selection
+                        for idx, model_name in enumerate(models_to_select, 1):
+                            print(f"   {idx}. {model_name}")
+
+                        # Interactive selection
+                        while True:
+                            try:
+                                choice = input(f"\nSelect model (1-{len(models_to_select)}, or 'c' to cancel): ").strip()
+
+                                if choice.lower() == 'c':
+                                    print("\n👋 Selection cancelled")
+                                    import sys
+                                    sys.exit(0)
+
+                                choice_idx = int(choice) - 1
+
+                                if 0 <= choice_idx < len(models_to_select):
+                                    self.model = models_to_select[choice_idx]
+                                    print(f"✅ Selected: {self.model}")
+
+                                    # Show model capabilities
+                                    try:
+                                        model_info = ollama.show(self.model)
+                                        if 'details' in model_info:
+                                            details = model_info['details']
+                                            print(f"   Family: {details.get('family', 'N/A')}")
+                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                                    except:
+                                        pass  # Don't fail if we can't get details
+                                    break
+                                else:
+                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}")
+                            except ValueError:
+                                print("❌ Please enter a valid number or 'c' to cancel")
+                            except KeyboardInterrupt:
+                                print("\n\n👋 Selection cancelled")
+                                import sys
+                                sys.exit(0)
+                    else:
+                        print("\n💡 No models installed in Ollama.")
+                        print("   To download a model, run:")
+                        print("   ollama pull llama3.2:3b")
+                        import sys
+                        sys.exit(1)
+                except Exception as list_error:
+                    # Can't reach Ollama server
+                    print(f"\n❌ Cannot connect to Ollama server: {list_error}")
+                    print("   Please ensure Ollama is running:")
+                    print("   ollama serve")
+                    import sys
+                    sys.exit(1)
+
+            print("\nType '/help' for available commands")
             while True:
                 user_input = input("You: ")
                 if user_input.lower() in {"/exit", "/quit"}:
                     print("👋 Goodbye!")
                     break
+
+                # Handle /help command
+                if user_input.lower().strip() == "/help":
+                    print("\n📖 Available CLI commands:")
+                    print("  /help                         - Show this help message")
+                    print("  /exit or /quit                - Exit the CLI")
+                    print("  /model                        - Change the current model interactively")
+                    print("  /load <file_name>             - Load conversation history from a file")
+                    print("  /save <file_name>             - Save conversation history to a file")
+                    print("  /overwrite <file_name>        - Overwrite existing conversation file")
+                    print("\n💡 Tips:")
+                    print("  - Just type your message to chat with the AI")
+                    print("  - Use arrow keys to navigate command history")
+                    print("  - Press Ctrl+C to cancel model selection or input")
+                    continue
+
+                # Handle /model command for model selection
+                if user_input.lower().strip() == "/model":
+                    try:
+                        models_response = ollama.list()
+                        available_models = [m['model'] for m in models_response['models']]
+
+                        if not available_models:
+                            print("❌ No models installed in Ollama.")
+                            continue
+
+                        # Limit to 10 models to avoid overwhelming
+                        if len(available_models) <= 10:
+                            print(f"\n📋 Available Ollama models:")
+                            models_to_select = available_models
+                        else:
+                            print(f"\n📋 Available Ollama models ({len(available_models)} total, showing first 10):")
+                            models_to_select = available_models[:10]
+
+                        for idx, model_name in enumerate(models_to_select, 1):
+                            print(f"   {idx}. {model_name}")
+
+                        while True:
+                            try:
+                                choice = input(f"\nSelect model (1-{len(models_to_select)}, or 'c' to cancel): ").strip()
+
+                                if choice.lower() == 'c':
+                                    print("Model selection cancelled")
+                                    break
+
+                                choice_idx = int(choice) - 1
+
+                                if 0 <= choice_idx < len(models_to_select):
+                                    old_model = self.model
+                                    self.model = models_to_select[choice_idx]
+
+                                    # Reset conversation context when model changes
+                                    self.message_history.reset()
+
+                                    print(f"✅ Model changed: {old_model} → {self.model}")
+                                    print("🔄 Conversation context reset")
+
+                                    # Show model capabilities
+                                    try:
+                                        model_info = ollama.show(self.model)
+                                        if 'details' in model_info:
+                                            details = model_info['details']
+                                            print(f"   Family: {details.get('family', 'N/A')}")
+                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                                    except:
+                                        pass  # Don't fail if we can't get details
+                                    break
+                                else:
+                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}")
+                            except ValueError:
+                                print("❌ Please enter a valid number or 'c' to cancel")
+                    except Exception as e:
+                        print(f"❌ Error fetching models: {e}")
+                    continue
 
                 file_match = re.search(r"/(load|save|overwrite)\s+([^\s]+)", user_input)
                 if file_match is None or not file_match.group(2).strip():
