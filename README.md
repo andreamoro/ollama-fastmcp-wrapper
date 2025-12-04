@@ -85,36 +85,7 @@ The `demos/` directory contains comprehensive usage examples in both shell and P
 - **history_management** - Conversation persistence
 - **temperature_test_multi_model.py** - Advanced temperature testing across multiple models
 
-### 🌡️ Temperature Testing
-
-The `temperature_test_multi_model.py` script allows comprehensive testing of how different models respond across temperature settings:
-
-```bash
-# Interactive mode (guided setup)
-python demos/temperature_test_multi_model.py
-
-# Specify prompt file
-python demos/temperature_test_multi_model.py --prompt my_prompt.txt
-
-# Non-interactive mode with default settings
-python demos/temperature_test_multi_model.py --default
-
-# View all options
-python demos/temperature_test_multi_model.py --help
-```
-
-**Features:**
-- Compare multiple models with different temperature settings
-- Progressive export to JSON and Markdown formats
-- Interactive prompt selection with recent file suggestions
-- Clean handling of malformed LLM responses
-- Detailed performance metrics and statistics
-
-**Output files:**
-- JSON: Machine-readable results with full test data
-- Markdown: Human-readable formatted report with tables
-
-See [`demos/README.md`](demos/README.md) for detailed instructions and prerequisites.
+See [`demos/README.md`](demos/README.md) for detailed usage instructions and examples.
 
 ---
 
