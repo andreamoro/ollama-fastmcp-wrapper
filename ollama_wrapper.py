@@ -861,6 +861,22 @@ class OllamaWrapper:
         except:
             pass  # Don't fail if we can't get details
 
+    def _switch_model(self, new_model: str):
+        """Switch to a new model and reset conversation context.
+
+        Args:
+            new_model: The name of the new model to switch to
+        """
+        old_model = self.model
+        self.model = new_model
+
+        # Reset conversation context when model changes
+        self.message_history.reset()
+
+        print(f"✅ Model changed: {old_model} → {self.model}")
+        print("🔄 Conversation context reset")
+        self._display_model_capabilities(self.model)
+
     def run_cli(self):
         """Run as a CLI chat interface.
         In this mode, the wrapper works as a simple chat interface.
@@ -1064,30 +1080,14 @@ class OllamaWrapper:
 
                                 # Check if user entered a model name directly
                                 if choice in available_models:
-                                    old_model = self.model
-                                    self.model = choice
-
-                                    # Reset conversation context when model changes
-                                    self.message_history.reset()
-
-                                    print(f"✅ Model changed: {old_model} → {self.model}")
-                                    print("🔄 Conversation context reset")
-                                    self._display_model_capabilities(self.model)
+                                    self._switch_model(choice)
                                     break
 
                                 # Try to parse as number
                                 choice_idx = int(choice) - 1
 
                                 if 0 <= choice_idx < len(models_to_select):
-                                    old_model = self.model
-                                    self.model = models_to_select[choice_idx]
-
-                                    # Reset conversation context when model changes
-                                    self.message_history.reset()
-
-                                    print(f"✅ Model changed: {old_model} → {self.model}")
-                                    print("🔄 Conversation context reset")
-                                    self._display_model_capabilities(self.model)
+                                    self._switch_model(models_to_select[choice_idx])
                                     break
                                 else:
                                     print(f"❌ Please enter a number between 1 and {len(models_to_select)}, a valid model name, or 'c' to cancel")
@@ -1096,15 +1096,7 @@ class OllamaWrapper:
                                 matching = [m for m in available_models if choice.lower() in m.lower()]
                                 if matching:
                                     if len(matching) == 1:
-                                        old_model = self.model
-                                        self.model = matching[0]
-
-                                        # Reset conversation context when model changes
-                                        self.message_history.reset()
-
-                                        print(f"✅ Model changed: {old_model} → {self.model}")
-                                        print("🔄 Conversation context reset")
-                                        self._display_model_capabilities(self.model)
+                                        self._switch_model(matching[0])
                                         break
                                     else:
                                         print(f"❌ Multiple models match '{choice}': {', '.join(matching)}")
