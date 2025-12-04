@@ -122,6 +122,7 @@ class OllamaWrapper:
                 max_history_messages:int=20
             ):
         self.model = model
+        self.initial_model = model  # Track the initial model to determine if model was changed
         self.message_history = history or MessageHistory(max_messages=max_history_messages)
         self.history_file = history_file
         self.overwrite_history = overwrite_history
@@ -1009,20 +1010,23 @@ class OllamaWrapper:
                         # Show current model
                         print(f"\n🔄 Current model: {self.model}")
 
-                        # Find similar models (fuzzy match based on current model)
+                        # Check if model was already changed during session
+                        model_was_changed = (self.model != self.initial_model)
+
+                        # Find similar models (fuzzy match only if model wasn't changed yet)
                         similar_models = []
-                        if self.model:
+                        if not model_was_changed and self.model:
                             # Extract base name (before colon) for fuzzy matching
                             model_base = self.model.split(':')[0].lower()
                             similar_models = [m for m in available_models if model_base in m.lower()]
 
                         # Decide which list to show for selection
-                        if similar_models:
-                            # Show only fuzzy matches
+                        if similar_models and not model_was_changed:
+                            # Show only fuzzy matches (only on first model change)
                             print(f"\n📋 Found {len(similar_models)} similar model(s):")
                             models_to_select = similar_models
                         else:
-                            # Show all models (up to 10)
+                            # Show all models (up to 10) - used after model was already changed
                             if len(available_models) <= 10:
                                 print(f"\n📋 Available Ollama models:")
                                 models_to_select = available_models
@@ -1035,12 +1039,36 @@ class OllamaWrapper:
 
                         while True:
                             try:
-                                choice = input(f"\nSelect model (1-{len(models_to_select)}, or 'c' to cancel): ").strip()
+                                choice = input(f"\nSelect model (1-{len(models_to_select)}, model name, or 'c' to cancel): ").strip()
 
                                 if choice.lower() == 'c':
                                     print("Model selection cancelled")
                                     break
 
+                                # Check if user entered a model name directly
+                                if choice in available_models:
+                                    old_model = self.model
+                                    self.model = choice
+
+                                    # Reset conversation context when model changes
+                                    self.message_history.reset()
+
+                                    print(f"✅ Model changed: {old_model} → {self.model}")
+                                    print("🔄 Conversation context reset")
+
+                                    # Show model capabilities
+                                    try:
+                                        model_info = ollama.show(self.model)
+                                        if 'details' in model_info:
+                                            details = model_info['details']
+                                            print(f"   Family: {details.get('family', 'N/A')}")
+                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                                    except:
+                                        pass  # Don't fail if we can't get details
+                                    break
+
+                                # Try to parse as number
                                 choice_idx = int(choice) - 1
 
                                 if 0 <= choice_idx < len(models_to_select):
@@ -1065,9 +1093,37 @@ class OllamaWrapper:
                                         pass  # Don't fail if we can't get details
                                     break
                                 else:
-                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}")
+                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}, a valid model name, or 'c' to cancel")
                             except ValueError:
-                                print("❌ Please enter a valid number or 'c' to cancel")
+                                # Not a number, check if it's a partial match
+                                matching = [m for m in available_models if choice.lower() in m.lower()]
+                                if matching:
+                                    if len(matching) == 1:
+                                        old_model = self.model
+                                        self.model = matching[0]
+
+                                        # Reset conversation context when model changes
+                                        self.message_history.reset()
+
+                                        print(f"✅ Model changed: {old_model} → {self.model}")
+                                        print("🔄 Conversation context reset")
+
+                                        # Show model capabilities
+                                        try:
+                                            model_info = ollama.show(self.model)
+                                            if 'details' in model_info:
+                                                details = model_info['details']
+                                                print(f"   Family: {details.get('family', 'N/A')}")
+                                                print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                                                print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                                        except:
+                                            pass  # Don't fail if we can't get details
+                                        break
+                                    else:
+                                        print(f"❌ Multiple models match '{choice}': {', '.join(matching)}")
+                                        print(f"   Please be more specific or use the number")
+                                else:
+                                    print(f"❌ Model '{choice}' not found. Please enter a valid number, model name, or 'c' to cancel")
                     except Exception as e:
                         print(f"❌ Error fetching models: {e}")
                     continue
