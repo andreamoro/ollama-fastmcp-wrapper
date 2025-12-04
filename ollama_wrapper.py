@@ -860,7 +860,25 @@ class OllamaWrapper:
 
         async def chat_session():
             print("💬 Starting Ollama-FastMCP Wrapper CLI...")
-            print("Type:")
+
+            # Display model capabilities
+            try:
+                model_info = ollama.show(self.model)
+                print(f"\n🤖 Model: {self.model}")
+                if 'details' in model_info:
+                    details = model_info['details']
+                    print(f"   Family: {details.get('family', 'N/A')}")
+                    print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
+                    print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
+                if 'model_info' in model_info:
+                    # Show general architecture info if available
+                    arch = model_info['model_info'].get('general.architecture', None)
+                    if arch:
+                        print(f"   Architecture: {arch}")
+            except Exception as e:
+                print(f"⚠️  Could not fetch model details: {e}")
+
+            print("\nType:")
             print("- '/exit' or '/quit' to close the CLI.")
             print("- '/load <file_name>' to load a previous conversation from a file.")
             print("- '/save or /overwrite <file_name>' to save the current conversation to a file.")
