@@ -1,12 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "Ollama-FastMCP-Wrapper"
-version = "0.6.8"
+version = "0.7.0"
 description = "A proxy service that bridges Ollama with FastMCP thus allowing MCP servers to be plugged and used locally."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiofiles>=24.0.0",
     "fastapi>=0.116.1",
     "fastmcp>=2.11.3",
     "ollama>=0.5.3",
     "uvicorn>=0.35.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [".", "mcp_servers"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (requiring Ollama server, deselect with '-m \"not slow\"')",
 ]

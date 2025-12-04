@@ -9,7 +9,7 @@ A proxy service that bridges [Ollama](https://ollama.ai) with [FastMCP](https://
 - Connect/disconnect to multiple **MCP servers** at runtime (using FastMCP).
 - Expose FastMCP tools as callable functions to Ollama models.
 - Use Ollama locally with tool-augmented reasoning.
-- Historical conversation with the LLM model persistable on disk.
+- Historical conversation with the LLM model persistable on disk with **async I/O**.
 - Automatically summarise historical conversation with the model.
 - Run as:
   - **API Server** (via FastAPI + Uvicorn)
@@ -44,6 +44,7 @@ Limited to this wrapper, MCP use is limited to the Tools part.
     ```
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Python requirements include:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - aiofiles (async file I/O)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastapi<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastmcp<br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - uvicorn<br>
