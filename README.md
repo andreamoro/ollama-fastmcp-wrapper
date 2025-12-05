@@ -98,13 +98,22 @@ python ollama_wrapper.py
 # choose "api"
 ```
 
-Endpoints:
+**📖 For comprehensive API documentation, usage patterns, and examples, see [API_USAGE.md](API_USAGE.md)**
+
+Key Endpoints:
 
 **Root:**
 - `GET /` → API documentation and endpoint listing
 
 **Chat:**
 - `POST /chat` → Send a chat request (with optional MCP tools)
+  - Supports stateful (conversational) and stateless (one-shot) modes
+  - Model parameter defaults to session model from config
+
+**Model Management:**
+- `GET /model` → Get current session model
+- `GET /model/list` → List all available Ollama models
+- `POST /model/switch/{model_name}` → Switch session model and reset context
 
 **History:**
 - `GET /history` → Get current conversation history
@@ -113,7 +122,7 @@ Endpoints:
 - `GET /history/overwrite/{file_name}` → Overwrite an existing conversation file
 - `GET /history/save/{file_name}` → Save conversation history to disk
 
-**Models:**
+**Legacy:**
 - `GET /models` → List installed Ollama models with details
 
 **Servers:**

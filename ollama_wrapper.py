@@ -40,7 +40,7 @@ class TransportMethod(Enum):
 
 class ChatRequest(BaseModel):
     message: str
-    model: str = "llama3.2:3b"
+    model: Optional[str] = None  # If None, uses session model from config
     mcp_server: Optional[str] = ""
     temperature: Optional[float] = None  # Optional temperature override (0.0-2.0)
     stateless: bool = False  # If True, don't persist message to history (one-shot mode)
@@ -155,14 +155,14 @@ class OllamaWrapper:
                 except Exception as e:
                     print(f"⚠️  Error disconnecting from {server_name}: {e}")
 
-        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.7.1", lifespan=lifespan_with_history)
+        self.app = FastAPI(title="Ollama-FastMCP Wrapper", version="0.8.0", lifespan=lifespan_with_history)
 
         @self.app.get("/")
         async def root():
             """Root endpoint - lists all available API endpoints"""
             return {
                 "name": "Ollama-FastMCP Wrapper",
-                "version": "0.7.1",
+                "version": "0.8.0",
                 "description": "A proxy service that bridges Ollama with FastMCP",
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
@@ -177,8 +177,11 @@ class OllamaWrapper:
                     "GET /history/overwrite/{file_name}": "Overwrite existing conversation file",
                     "GET /history/save/{file_name}": "Save conversation history to file",
 
-                    "# Models": "",
-                    "GET /models": "List installed Ollama models with details",
+                    "# Model Management": "",
+                    "GET /model": "Get current session model",
+                    "GET /model/list": "List all available models from Ollama",
+                    "POST /model/switch/{model_name}": "Switch session model and reset context",
+                    "GET /models": "List installed Ollama models with details (legacy)",
 
                     "# Servers": "",
                     "GET /servers": "List connected servers and available servers from config",
@@ -188,10 +191,10 @@ class OllamaWrapper:
                 },
                 "chat_parameters": {
                     "message": "string (required) - The message to send",
-                    "model": "string (default: 'llama3.2:3b') - Ollama model to use",
+                    "model": "string (optional) - Ollama model to use. Defaults to session model. For stateful requests, must match session model or use /model/switch. For stateless requests, can be any model.",
                     "mcp_server": "string (optional) - MCP server name to use tools from",
                     "temperature": "float (optional, 0.0-2.0) - Response randomness/creativity",
-                    "stateless": "bool (default: false) - Don't persist message to history"
+                    "stateless": "bool (default: false) - One-shot mode: don't persist to/from history, allows any model"
                 },
                 "documentation": "https://github.com/your-repo/ollama-fastmcp-wrapper"
             }
@@ -250,6 +253,94 @@ class OllamaWrapper:
             """Clear the current conversation history."""
             self.message_history.reset()
             return {"status": "success", "message": "Conversation history cleared"}
+
+        @self.app.get("/model")
+        async def get_model():
+            """Get current session model."""
+            return {
+                "model": self.model,
+                "source": "session"
+            }
+
+        @self.app.get("/model/list")
+        async def list_models():
+            """List all available models from Ollama."""
+            try:
+                models_response = ollama.list()
+                models = models_response.get('models', [])
+                return {
+                    "models": [
+                        {
+                            "name": m['model'],
+                            "size": m.get('size', 0),
+                            "modified": m.get('modified_at', '')
+                        }
+                        for m in models
+                    ],
+                    "count": len(models)
+                }
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to list models from Ollama: {str(e)}"
+                )
+
+        @self.app.post("/model/switch/{model_name}")
+        async def switch_model(model_name: str):
+            """
+            Change session model and reset conversation context.
+
+            This endpoint:
+            1. Validates the new model exists in Ollama
+            2. Changes the session model
+            3. Resets conversation history
+            4. Returns model info and confirmation
+            """
+            # Validate model exists
+            try:
+                model_info = ollama.show(model_name)
+            except Exception as e:
+                # Model doesn't exist
+                try:
+                    # Get available models for helpful error message
+                    models_response = ollama.list()
+                    available_models = [m['model'] for m in models_response.get('models', [])]
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Model '{model_name}' not found in Ollama. Available models: {', '.join(available_models[:10])}"
+                    )
+                except HTTPException:
+                    raise
+                except Exception:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Model '{model_name}' not found in Ollama: {str(e)}"
+                    )
+
+            # Store old model for response
+            old_model = self.model
+
+            # Switch model and reset context
+            self.model = model_name
+            self.message_history.reset()
+
+            # Extract model capabilities
+            model_capabilities = {}
+            if 'details' in model_info:
+                details = model_info['details']
+                model_capabilities = {
+                    "family": details.get('family', 'N/A'),
+                    "parameters": details.get('parameter_size', 'N/A'),
+                    "quantization": details.get('quantization_level', 'N/A')
+                }
+
+            return {
+                "status": "success",
+                "old_model": old_model,
+                "new_model": self.model,
+                "message": f"Model switched from '{old_model}' to '{self.model}' and conversation context reset",
+                "model_info": model_capabilities
+            }
 
     async def initialise_mcp_client(
             self,
@@ -469,6 +560,19 @@ class OllamaWrapper:
         Note (v0.5.0+): Servers must be explicitly connected via /connect/{server_name}
         before they can be used in chat. Auto-loading has been removed.
         """
+
+        # STEP 0: Handle model parameter and validation
+        # If no model specified, use session model
+        if request.model is None:
+            request.model = self.model
+
+        # For stateful requests, enforce model matching to prevent context contamination
+        if not request.stateless and request.model != self.model:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model mismatch: session model is '{self.model}', but request specified '{request.model}'. "
+                       f"Use POST /model/switch/{request.model} to change session model, or set stateless=true for one-off queries."
+            )
 
         # STEP 1: Get tools from already-connected server (if specified)
         # No auto-loading - server must be explicitly connected first
