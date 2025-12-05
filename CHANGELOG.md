@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-12-05
+
+### Added
+- **API model management**:
+  - Added `GET /model` endpoint to get current session model
+  - Added `GET /model/list` endpoint to list all available Ollama models
+  - Added `POST /model/switch/{model_name}` endpoint to change session model and reset context
+  - Model switch endpoint returns detailed response with old model, new model, and model capabilities
+  - Comprehensive API documentation in `API_USAGE.md` with usage patterns and examples
+- **Stateless mode enhancements**:
+  - Stateless requests can now use any model without restrictions
+  - Perfect for multi-model testing and experimentation
+  - No context contamination between different models
+- **Model validation**:
+  - Stateful requests now enforce model matching to prevent context contamination
+  - Clear error messages guide users to use `/model/switch` or `stateless=true`
+  - Validates model exists in Ollama before switching
+
+### Changed
+- **ChatRequest model parameter**:
+  - Changed from hardcoded default `"llama3.2:3b"` to optional parameter
+  - Now uses session model from `wrapper_config.toml` when not specified
+  - Aligns with CLI mode behavior for consistency
+- **API root endpoint**:
+  - Updated to include new model management endpoints
+  - Improved chat parameters documentation
+  - Clarified stateful vs stateless behavior
+
+### Breaking Changes
+- **Stateful requests with model parameter**:
+  - Previously: Could specify any model in stateful requests (caused context contamination)
+  - Now: Model parameter must match session model, or use `/model/switch` endpoint
+  - **Migration**: Use `stateless=true` for multi-model queries, or `/model/switch` to change session model
+- **Temperature testing scripts**: No changes needed - already use `stateless=true`
+
+### Fixed
+- **Default model configuration**:
+  - Fixed bug where API mode used hardcoded default instead of config file
+  - Session model now properly initialized from `wrapper_config.toml`
+
 ## [0.7.1] - 2025-12-04
 
 ### Added
