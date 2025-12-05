@@ -181,7 +181,6 @@ class OllamaWrapper:
                     "GET /model": "Get current session model",
                     "GET /model/list": "List all available models from Ollama",
                     "POST /model/switch/{model_name}": "Switch session model and reset context",
-                    "GET /models": "List installed Ollama models with details (legacy)",
 
                     "# Servers": "",
                     "GET /servers": "List connected servers and available servers from config",
@@ -208,11 +207,6 @@ class OllamaWrapper:
         async def list_server_tools(server_name: str):
             """List available tools for a given FastMCP server"""
             return await self._list_tools(server_name=server_name)
-
-        @self.app.get("/models")
-        async def list_models() -> dict:
-            """List available Ollama models"""
-            return await self._list_models()
 
         @self.app.get("/history")
         async def get_history() -> dict:
@@ -781,31 +775,6 @@ class OllamaWrapper:
             "connected": connected_servers,
             "available": available_servers
         }
-
-    async def _list_models(self) -> dict:
-        """List available Ollama models"""
-        try:
-            models_response = ollama.list()
-            models_list = []
-
-            for model in models_response['models']:
-                model_info = {
-                    "name": model['model'],
-                    "size": model['size'],
-                    "size_gb": round(model['size'] / 1e9, 2),
-                    "modified_at": str(model['modified_at']),
-                    "family": model['details']['family'],
-                    "parameter_size": model['details']['parameter_size'],
-                    "quantization": model['details']['quantization_level']
-                }
-                models_list.append(model_info)
-
-            return {
-                "models": models_list,
-                "count": len(models_list)
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to list models: {e}")
 
     async def _get_history(self) -> dict:
         """

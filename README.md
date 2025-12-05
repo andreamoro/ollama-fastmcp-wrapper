@@ -122,9 +122,6 @@ Key Endpoints:
 - `GET /history/overwrite/{file_name}` → Overwrite an existing conversation file
 - `GET /history/save/{file_name}` → Save conversation history to disk
 
-**Legacy:**
-- `GET /models` → List installed Ollama models with details
-
 **Servers:**
 - `GET /servers` → List available FastMCP servers from config
 - `POST /servers/{server_name}/connect` → Connect to an MCP server
