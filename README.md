@@ -100,15 +100,13 @@ python ollama_wrapper.py
 
 **📖 For comprehensive API documentation, usage patterns, and examples, see [API_USAGE.md](API_USAGE.md)**
 
-Key Endpoints:
+#### API Endpoints
 
 **Root:**
 - `GET /` → API documentation and endpoint listing
 
 **Chat:**
 - `POST /chat` → Send a chat request (with optional MCP tools)
-  - Supports stateful (conversational) and stateless (one-shot) modes
-  - Model parameter defaults to session model from config
 
 **Model Management:**
 - `GET /model` → Get current session model
@@ -128,111 +126,28 @@ Key Endpoints:
 - `POST /servers/{server_name}/disconnect` → Disconnect from an MCP server
 - `GET /servers/{server_name}/tools` → List available tools for a specific MCP server
 
-#### Usage Scenarios
+#### Quick Start Example
 
-**Scenario 1: Using Tools (Requires Explicit Connection)**
 ```bash
-# ⚠️ IMPORTANT (v0.5.0+): Servers must be explicitly connected before use
+# Start API server
+python ollama_wrapper.py api
 
-# Step 1: Connect to MCP server
+# Simple chat request (uses session model from config)
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello! Tell me about Python"}'
+
+# Connect to MCP server and use tools
 curl -X POST http://localhost:8000/servers/math/connect
-
-# Step 2: Chat with tools
-curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "Add 5 and 10, then multiply the result by 20.",
-  "model": "llama3.2:3b",
-  "mcp_server": "math"
-}'
-
-# If you forget to connect first, you'll get a clear error:
-# HTTP 400: Server 'math' is not connected. Please connect first using POST /servers/math/connect
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is 25 * 4?",
+    "mcp_server": "math"
+  }'
 ```
 
-**Scenario 2: Pure Chat (no tools)**
-```bash
-# Use empty mcp_server for pure Ollama chat without tools
-curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "Hello, how are you?",
-  "model": "llama3.2:3b",
-  "mcp_server": ""
-}'
-# No tools are sent to Ollama, faster response
-```
-
-**Scenario 3: Stateless Mode (One-Shot Requests)**
-```bash
-# Use stateless mode for independent, single-turn interactions
-curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "Translate this to French: Hello world",
-  "model": "llama3.2:3b",
-  "mcp_server": "",
-  "stateless": true
-}'
-# Message is not added to history - ideal for:
-#   - API integrations requiring stateless behavior
-#   - Batch processing multiple independent requests
-#   - Microservices that don't need conversation context
-#   - Parallel request processing without interference
-```
-
-**Scenario 4: Custom Temperature for Creative Tasks**
-```bash
-# Override default temperature for more creative responses
-curl http://localhost:8000/chat -H "Content-Type: application/json" -d '{
-  "message": "Write a creative poem about programming",
-  "model": "llama3.2:3b",
-  "mcp_server": "",
-  "temperature": 1.5
-}'
-# Higher temperature (1.5) produces more creative, varied responses
-
-# Response includes performance metrics:
-# {
-#   "response": "...",
-#   "tools_used": [],
-#   "metrics": {
-#     "prompt_tokens": 45,
-#     "completion_tokens": 120,
-#     "tokens_per_second": 42.5,
-#     "total_duration_s": 2.82,
-#     "eval_duration_s": 2.12,
-#     "prompt_eval_duration_s": 0.68
-#   }
-# }
-```
-
-**Scenario 5: Discovering Available Models**
-```bash
-# List all installed Ollama models
-curl http://localhost:8000/models
-
-# Response includes model details:
-# {
-#   "models": [
-#     {
-#       "name": "llama3.2:3b",
-#       "size": 2019393189,
-#       "size_gb": 2.02,
-#       "family": "llama",
-#       "parameter_size": "3.2B",
-#       "quantization": "Q4_K_M"
-#     }
-#   ],
-#   "count": 1
-# }
-```
-
-**Scenario 6: Managing Server Connections**
-```bash
-# List available servers
-curl http://localhost:8000/servers
-
-# Disconnect a server
-curl -X POST http://localhost:8000/servers/math/disconnect
-
-# Get conversation history
-curl http://localhost:8000/history
-```
+For detailed usage patterns including model switching, multi-model testing, temperature testing, and more, see [API_USAGE.md](API_USAGE.md).
 
 ---
 
@@ -243,14 +158,26 @@ python ollama_wrapper.py
 # choose "cli"
 ```
 
-Then type messages:
+**📖 For comprehensive CLI documentation, commands, and usage patterns, see [CLI_USAGE.md](CLI_USAGE.md)**
 
-```
-You: Hello!
-Bot: Hi there
+#### Quick Start
+
+```bash
+# Start CLI
+python ollama_wrapper.py cli
+
+# Chat naturally
+You: Hello! How are you?
+Bot: I'm doing well, thank you for asking!
+
+# Use commands
+You: /help       # Show available commands
+You: /model      # Change model interactively
+You: /clear      # Clear conversation context
+You: /exit       # Exit CLI
 ```
 
-Exit with `/exit` or `/quit`.
+For detailed usage patterns including model switching, persistent conversations, and temperature adjustment, see [CLI_USAGE.md](CLI_USAGE.md).
 
 ---
 

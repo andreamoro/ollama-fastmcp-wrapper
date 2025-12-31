@@ -950,6 +950,69 @@ class OllamaWrapper:
         print("🔄 Conversation context reset")
         self._display_model_capabilities(self.model)
 
+    def _select_model_interactive(self, all_models: List[str], models_to_select: List[str], is_startup: bool = False) -> str:
+        """Interactive model selection with support for number, exact name, or partial match.
+
+        Args:
+            all_models: Complete list of all available models
+            models_to_select: Filtered list of models to display (may be subset for fuzzy matching)
+            is_startup: If True, exits on cancel; if False, returns None on cancel
+
+        Returns:
+            Selected model name, or None if cancelled (only when is_startup=False)
+        """
+        # Display numbered list for selection
+        for idx, model_name in enumerate(models_to_select, 1):
+            print(f"   {idx}. {model_name}")
+
+        # Interactive selection
+        while True:
+            try:
+                choice = input(f"\nSelect model (1-{len(models_to_select)}, model name, or 'c' to cancel): ").strip()
+
+                if choice.lower() == 'c':
+                    if is_startup:
+                        print("\n👋 Selection cancelled")
+                        import sys
+                        sys.exit(0)
+                    else:
+                        print("Model selection cancelled")
+                        return None
+
+                # Check if user entered a model name directly
+                if choice in all_models:
+                    return choice
+
+                # Try to parse as number
+                choice_idx = int(choice) - 1
+
+                if 0 <= choice_idx < len(models_to_select):
+                    return models_to_select[choice_idx]
+                else:
+                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}, a valid model name, or 'c' to cancel")
+            except ValueError:
+                # Not a number, check if it's a partial match
+                matching = [m for m in all_models if choice.lower() in m.lower()]
+                if matching:
+                    if len(matching) == 1:
+                        return matching[0]
+                    else:
+                        print(f"❌ Multiple models match '{choice}':")
+                        for idx, model_name in enumerate(matching, 1):
+                            print(f"   {idx}. {model_name}")
+                        # Update models_to_select to the matching list for next iteration
+                        models_to_select = matching
+                else:
+                    print(f"❌ Model '{choice}' not found. Please enter a valid number, model name, or 'c' to cancel")
+            except KeyboardInterrupt:
+                if is_startup:
+                    print("\n\n👋 Selection cancelled")
+                    import sys
+                    sys.exit(0)
+                else:
+                    print("\nModel selection cancelled")
+                    return None
+
     def run_cli(self):
         """Run as a CLI chat interface.
         In this mode, the wrapper works as a simple chat interface.
@@ -999,7 +1062,7 @@ class OllamaWrapper:
                     if models['models']:
                         all_models = [m['model'] for m in models['models']]
 
-                        # Find similar models (fuzzy match)
+                        # Find similar models (fuzzy match based on config model base name)
                         similar_models = []
                         if self.model:
                             # Extract base name (before colon) for fuzzy matching
@@ -1020,46 +1083,12 @@ class OllamaWrapper:
                                 print(f"\n💡 Available models in Ollama ({len(all_models)} total, showing first 10):")
                                 models_to_select = all_models[:10]
 
-                        # Display numbered list for selection
-                        for idx, model_name in enumerate(models_to_select, 1):
-                            print(f"   {idx}. {model_name}")
-
-                        # Interactive selection
-                        while True:
-                            try:
-                                choice = input(f"\nSelect model (1-{len(models_to_select)}, or 'c' to cancel): ").strip()
-
-                                if choice.lower() == 'c':
-                                    print("\n👋 Selection cancelled")
-                                    import sys
-                                    sys.exit(0)
-
-                                choice_idx = int(choice) - 1
-
-                                if 0 <= choice_idx < len(models_to_select):
-                                    self.model = models_to_select[choice_idx]
-                                    print(f"✅ Selected: {self.model}")
-
-                                    # Show model capabilities
-                                    try:
-                                        model_info = ollama.show(self.model)
-                                        if 'details' in model_info:
-                                            details = model_info['details']
-                                            print(f"   Family: {details.get('family', 'N/A')}")
-                                            print(f"   Parameters: {details.get('parameter_size', 'N/A')}")
-                                            print(f"   Quantization: {details.get('quantization_level', 'N/A')}")
-                                            print("\n")
-                                    except:
-                                        pass  # Don't fail if we can't get details
-                                    break
-                                else:
-                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}")
-                            except ValueError:
-                                print("❌ Please enter a valid number or 'c' to cancel")
-                            except KeyboardInterrupt:
-                                print("\n\n👋 Selection cancelled")
-                                import sys
-                                sys.exit(0)
+                        # Use centralized interactive selection
+                        selected_model = self._select_model_interactive(all_models, models_to_select, is_startup=True)
+                        self.model = selected_model
+                        print(f"✅ Selected: {self.model}")
+                        self._display_model_capabilities(self.model)
+                        print()
                     else:
                         print("\n💡 No models installed in Ollama.")
                         print("   To download a model, run:")
@@ -1093,7 +1122,6 @@ class OllamaWrapper:
                     print("  /overwrite <file_name>        - Overwrite existing conversation file")
                     print("\n💡 Tips:")
                     print("  - Just type your message to chat with the AI")
-                    print("  - Use arrow keys to navigate command history")
                     print("  - Press Ctrl+C to cancel model selection or input")
                     continue
 
@@ -1140,42 +1168,10 @@ class OllamaWrapper:
                                 print(f"\n📋 Available Ollama models ({len(available_models)} total, showing first 10):")
                                 models_to_select = available_models[:10]
 
-                        for idx, model_name in enumerate(models_to_select, 1):
-                            print(f"   {idx}. {model_name}")
-
-                        while True:
-                            try:
-                                choice = input(f"\nSelect model (1-{len(models_to_select)}, model name, or 'c' to cancel): ").strip()
-
-                                if choice.lower() == 'c':
-                                    print("Model selection cancelled")
-                                    break
-
-                                # Check if user entered a model name directly
-                                if choice in available_models:
-                                    self._switch_model(choice)
-                                    break
-
-                                # Try to parse as number
-                                choice_idx = int(choice) - 1
-
-                                if 0 <= choice_idx < len(models_to_select):
-                                    self._switch_model(models_to_select[choice_idx])
-                                    break
-                                else:
-                                    print(f"❌ Please enter a number between 1 and {len(models_to_select)}, a valid model name, or 'c' to cancel")
-                            except ValueError:
-                                # Not a number, check if it's a partial match
-                                matching = [m for m in available_models if choice.lower() in m.lower()]
-                                if matching:
-                                    if len(matching) == 1:
-                                        self._switch_model(matching[0])
-                                        break
-                                    else:
-                                        print(f"❌ Multiple models match '{choice}': {', '.join(matching)}")
-                                        print(f"   Please be more specific or use the number")
-                                else:
-                                    print(f"❌ Model '{choice}' not found. Please enter a valid number, model name, or 'c' to cancel")
+                        # Use centralized interactive selection
+                        selected_model = self._select_model_interactive(available_models, models_to_select, is_startup=False)
+                        if selected_model:
+                            self._switch_model(selected_model)
                     except Exception as e:
                         print(f"❌ Error fetching models: {e}")
                     continue

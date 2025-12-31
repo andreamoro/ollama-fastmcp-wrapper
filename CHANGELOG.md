@@ -42,6 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Migration**: Use `stateless=true` for multi-model queries, or `/model/switch` to change session model
 - **Temperature testing scripts**: No changes needed - already use `stateless=true`
 
+### Removed
+- **Legacy endpoint cleanup**:
+  - Removed duplicate `GET /models` endpoint in favor of `GET /model/list`
+  - All model listing now consolidated under Model Management section
+
 ### Fixed
 - **Default model configuration**:
   - Fixed bug where API mode used hardcoded default instead of config file
