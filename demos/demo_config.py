@@ -16,6 +16,7 @@ def get_wrapper_url():
     Note:
         - Falls back to http://localhost:8000 if config cannot be read
         - Converts 0.0.0.0 to localhost for client connections
+        - Only reads from [wrapper] section, ignoring [ollama] section
     """
     try:
         # Get the project root directory using Path
@@ -26,19 +27,33 @@ def get_wrapper_url():
         host = "localhost"  # Default
         port = 8000  # Default
 
-        pattern = re.compile(
+        section_pattern = re.compile(r'^\s*\[([^\]]+)\]')
+        config_pattern = re.compile(
             r'^\s*(host|port)\s*=\s*["\']?([^"\']+)["\']?',
             re.IGNORECASE
         )
 
+        current_section = None
+
         with open(config_file, 'r', encoding='utf-8-sig') as f:
             for line in f:
                 clean = line.split('#', 1)[0].strip()  # remove comments
-                match = pattern.match(clean)
-                if not match:
+
+                # Check for section header
+                section_match = section_pattern.match(clean)
+                if section_match:
+                    current_section = section_match.group(1).strip()
                     continue
 
-                key, value = match.groups()
+                # Only process config lines in [wrapper] section
+                if current_section != "wrapper":
+                    continue
+
+                config_match = config_pattern.match(clean)
+                if not config_match:
+                    continue
+
+                key, value = config_match.groups()
                 key = key.lower()
                 value = value.strip()
 

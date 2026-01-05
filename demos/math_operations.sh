@@ -2,7 +2,10 @@
 # Math Operations Demo - Using the math MCP server
 # This demonstrates connecting to a server and using its tools
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 
 echo "=== Math Operations Demo ==="
 echo

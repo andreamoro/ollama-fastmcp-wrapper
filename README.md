@@ -217,6 +217,7 @@ Version 0.4.0 introduces a separated configuration structure:
    - `port`: Ollama instance port (default: 11434)
    - `timeout`: Request timeout in seconds (default: 300). Prevents the wrapper from hanging indefinitely when SSH tunnels drop or remote Ollama becomes unresponsive.
    - `label`: Human-readable label to identify this Ollama instance (prompted at startup if not set)
+   - For server-side settings (parallelism, VRAM, network access), see [OLLAMA_SERVER.md](OLLAMA_SERVER.md)
 
    **Model Settings:**
    - `default`: Default model name if not specified in requests

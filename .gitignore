@@ -1,6 +1,7 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
+.pytest_cache
 build/
 dist/
 wheels/
@@ -20,8 +21,10 @@ messages_history/
 *.out
 test_results/
 tests/test_results/
+demos/coreference/results/
 
 # Custom prompts (intellectual property)
 demos/prompts/*
+demos/coreference/prompts/*
 !demos/prompts/.gitkeep
 !demos/prompts/README.md

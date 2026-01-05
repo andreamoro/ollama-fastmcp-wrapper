@@ -2,7 +2,10 @@
 # Enhanced Temperature Test - Compare multiple models with different temperatures
 # Shows how temperature affects response quality across different model families
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 PROMPT="Explain what a binary search algorithm does in one sentence."
 
 # Colors for better output (optional)

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-01-06
+
 ### Added
 - **Ollama request timeout configuration**:
   - Added `timeout` parameter to `[ollama]` config section (default: 300 seconds)
@@ -18,6 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Returns immediately with status: `available`, `unavailable`, or `error`
   - `/model/list` now performs quick health check before attempting full request
   - API responds immediately instead of blocking when Ollama is unreachable
+- **Ollama server-side configuration documentation** (`OLLAMA_SERVER.md`):
+  - Environment variables: `OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_MAX_QUEUE`, `OLLAMA_HOST`
+  - Systemd configuration examples for persistent settings
+  - SSH tunneling guide for remote Ollama instances
+  - VRAM considerations and parallelism tuning
+- **Coreference resolution testing demo** (`demos/coreference/`):
+  - Comprehensive LLM evaluation framework for pronoun resolution tasks
+  - Multi-language support: English, Spanish, Russian, Chinese, Italian, French, German
+  - Winograd Schema Challenge-style tests requiring world knowledge and reasoning
+  - Multiple prompt strategies: zero-shot, chain-of-thought reasoning, compact CoT
+  - **Accurate timing metrics**:
+    - Separates Ollama internal processing time from wall-clock time
+    - Tracks queue wait time when running parallel tests
+    - Enables accurate benchmarking even with `OLLAMA_NUM_PARALLEL=1`
+  - **Comparison tool** (`compare_results.py`):
+    - Side-by-side comparison of multiple test runs
+    - Per-test timing breakdown with accuracy indicators
+    - Section headers show accuracy percentage and prompt file used
+  - JSON and Markdown export with detailed metrics per test case
+  - Watcher mode for real-time test monitoring
 
 ## [0.8.0] - 2025-12-05
 

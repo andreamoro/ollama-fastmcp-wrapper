@@ -2,7 +2,10 @@
 # Temperature Test Demo - Compare different temperature settings
 # Shows how temperature affects response consistency and creativity
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 PROMPT="Explain what a binary search algorithm does in one sentence."
 
 # Function to format duration in hours:minutes:seconds

@@ -2,7 +2,10 @@
 # History Management Demo - Load and save conversation history
 # This demonstrates conversation persistence
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 HISTORY_FILE="demo_conversation.json"
 
 echo "=== History Management Demo ==="

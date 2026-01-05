@@ -2,7 +2,10 @@
 # Server Management Demo - Connect, list, and disconnect servers
 # This demonstrates server lifecycle management
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 
 echo "=== Server Management Demo ==="
 echo

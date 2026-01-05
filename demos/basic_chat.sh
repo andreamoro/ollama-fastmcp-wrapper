@@ -2,7 +2,10 @@
 # Basic Chat Demo - Chat without MCP tools
 # This demonstrates pure Ollama chat without any tool usage
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 
 echo "=== Basic Chat Demo ==="
 echo "Sending a simple chat message without tools..."

@@ -2,7 +2,10 @@
 # IPInfo Lookup Demo - Using the IPInfo MCP server
 # This demonstrates IP geolocation and organization lookup
 
-HOST="http://localhost:8000"
+# Source the wrapper URL configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/get_wrapper_url.sh"
+HOST="$WRAPPER_URL"
 
 echo "=== IPInfo Lookup Demo ==="
 echo

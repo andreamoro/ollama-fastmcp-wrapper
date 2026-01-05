@@ -249,6 +249,55 @@ ps aux | grep temperature_test_multi_model
 
 ---
 
+### 8. Coreference Resolution Testing (`coreference/`)
+Evaluate LLM capabilities on pronoun resolution tasks using Winograd Schema-style challenges.
+
+**Run a test:**
+```bash
+python demos/coreference/coreference_test.py
+```
+
+**Compare results:**
+```bash
+python demos/coreference/compare_results.py results/file1.json results/file2.json
+```
+
+**Watch tests in real-time:**
+```bash
+python demos/coreference/coreference_watcher.py results/
+```
+
+**Features:**
+- **Multi-language support**: English, Spanish, Russian, Chinese, Italian, French, German
+- **Winograd Schema challenges**: Tests requiring world knowledge and commonsense reasoning
+- **Multiple prompt strategies**: Zero-shot, chain-of-thought reasoning, compact CoT
+- **Accurate timing metrics**:
+  - Ollama internal processing time (excludes queue wait)
+  - Wall-clock time (total elapsed)
+  - Queue wait time (for parallel test analysis)
+- **Comparison tool**: Side-by-side analysis with accuracy and timing breakdowns
+- **Export formats**: JSON (machine-readable) and Markdown (human-readable)
+
+**Directory structure:**
+```
+demos/coreference/
+├── coreference_test.py      # Main test runner
+├── coreference_utils.py     # Shared utilities
+├── compare_results.py       # Result comparison tool
+├── coreference_watcher.py   # Real-time monitoring
+├── datasets/                # Test datasets (JSON)
+├── prompts/                 # Prompt templates
+└── results/                 # Test output files
+```
+
+**What it shows:**
+- How different models handle pronoun resolution
+- Impact of prompt engineering on accuracy
+- Performance comparison across languages
+- Timing analysis for benchmarking
+
+---
+
 ## Python Dependencies
 
 Python demos require the `requests` library:
