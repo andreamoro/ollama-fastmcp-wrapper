@@ -15,7 +15,7 @@ curl http://localhost:8000/chat
 import argparse
 from pathlib import Path
 from mcp_servers import mcpserver_config
-import wrapper_config
+from wrapper_config import WrapperConfig, OllamaConfig
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple, Optional
@@ -27,6 +27,7 @@ from fastmcp.client.transports import StdioTransport
 from contextlib import asynccontextmanager
 from enum import Enum
 import aiofiles
+import httpx
 
 mcp_config = None
 # Global FastMCP clients storage
@@ -44,6 +45,7 @@ class ChatRequest(BaseModel):
     mcp_server: Optional[str] = ""
     temperature: Optional[float] = None  # Optional temperature override (0.0-2.0)
     stateless: bool = False  # If True, don't persist message to history (one-shot mode)
+    keep_alive: Optional[str] = "30m"  # How long to keep model loaded (e.g., "30m", "1h", "-1" for forever)
 
 class ChatResponse(BaseModel):
     response: str
@@ -54,11 +56,13 @@ class MessageHistory:
     def __init__(self,
                 system_prompt="You are a helpful assistant.",
                 max_messages=20,
-                summarise_model="llama3.2:3b"
+                summarise_model="llama3.2:3b",
+                ollama_client=None
             ):
         self.system_prompt = system_prompt
         self.max_messages = max_messages
         self.summarise_model = summarise_model
+        self.ollama_client = ollama_client or ollama.Client()  # Use provided client or default
         self.messages = [{"role": "system", "content": system_prompt}]
         self.summary = None
 
@@ -71,12 +75,13 @@ class MessageHistory:
             f"{m['role'].capitalize()}: {m['content']}"
             for m in self.messages if m['role'] in ["user", "assistant"]
         )
-        response = ollama.chat(
+        response = self.ollama_client.chat(
             model=self.summarise_model,
             messages=[
                 {"role": "system", "content": "Summarise the following conversation briefly."},
                 {"role": "user", "content": history_text}
-            ]
+            ],
+            keep_alive="30m"
         )
         return response["message"]["content"]
 
@@ -119,11 +124,19 @@ class OllamaWrapper:
                 history_file:str="",
                 overwrite_history:bool=False,
                 config_temperature:float=0.2,
-                max_history_messages:int=20
+                max_history_messages:int=20,
+                ollama_host:str="http://localhost:11434",
+                ollama_label:str="",
+                ollama_timeout:int=300
             ):
         self.model = model
         self.initial_model = model  # Track the initial model to determine if model was changed
-        self.message_history = history or MessageHistory(max_messages=max_history_messages)
+        self.ollama_timeout = ollama_timeout
+        self.ollama_host = ollama_host  # Store for health checks
+        self.ollama_client = ollama.Client(host=ollama_host, timeout=ollama_timeout)  # Configure with timeout to prevent hang on tunnel drops
+        self.ollama_label = ollama_label  # Optional label to identify this Ollama instance
+        self._ollama_available = None  # Cache for Ollama availability status
+        self.message_history = history or MessageHistory(max_messages=max_history_messages, ollama_client=self.ollama_client)
         self.history_file = history_file
         self.overwrite_history = overwrite_history
         self.config_temperature = config_temperature  # Default temperature from config
@@ -160,10 +173,19 @@ class OllamaWrapper:
         @self.app.get("/")
         async def root():
             """Root endpoint - lists all available API endpoints"""
+            config_info = {
+                "session_model": self.model,
+                "ollama_host": self.ollama_client._client.base_url,
+                "config_temperature": self.config_temperature
+            }
+            if self.ollama_label:
+                config_info["ollama_label"] = self.ollama_label
+
             return {
                 "name": "Ollama-FastMCP Wrapper",
                 "version": "0.8.0",
                 "description": "A proxy service that bridges Ollama with FastMCP",
+                "configuration": config_info,
                 "endpoints": {
                     "GET /": "This endpoint - lists all available endpoints",
 
@@ -181,6 +203,8 @@ class OllamaWrapper:
                     "GET /model": "Get current session model",
                     "GET /model/list": "List all available models from Ollama",
                     "POST /model/switch/{model_name}": "Switch session model and reset context",
+                    "GET /ollama/config": "Get Ollama instance connection details",
+                    "GET /ollama/status": "Quick health check for Ollama (5s timeout)",
 
                     "# Servers": "",
                     "GET /servers": "List connected servers and available servers from config",
@@ -256,22 +280,86 @@ class OllamaWrapper:
                 "source": "session"
             }
 
+        @self.app.get("/ollama/config")
+        async def get_ollama_config():
+            """Get Ollama instance connection details and current active model."""
+            return {
+                "host": self.ollama_client._client.base_url,
+                "label": self.ollama_label,
+                "active_model": self.model,
+                "description": "Ollama instance connection configuration"
+            }
+
+        @self.app.get("/ollama/status")
+        async def get_ollama_status():
+            """Quick health check for Ollama availability (5 second timeout)."""
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(f"{self.ollama_host}/api/tags")
+                    if response.status_code == 200:
+                        return {
+                            "status": "available",
+                            "host": self.ollama_host,
+                            "label": self.ollama_label,
+                            "message": "Ollama is responding"
+                        }
+                    else:
+                        return {
+                            "status": "error",
+                            "host": self.ollama_host,
+                            "label": self.ollama_label,
+                            "message": f"Ollama returned status {response.status_code}"
+                        }
+            except httpx.TimeoutException:
+                return {
+                    "status": "unavailable",
+                    "host": self.ollama_host,
+                    "label": self.ollama_label,
+                    "message": "Ollama not responding (timeout after 5s)"
+                }
+            except httpx.ConnectError:
+                return {
+                    "status": "unavailable",
+                    "host": self.ollama_host,
+                    "label": self.ollama_label,
+                    "message": "Cannot connect to Ollama"
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "host": self.ollama_host,
+                    "label": self.ollama_label,
+                    "message": str(e)
+                }
+
         @self.app.get("/model/list")
         async def list_models():
             """List all available models from Ollama."""
+            # Quick health check first (5 second timeout)
             try:
-                models_response = ollama.list()
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.get(f"{self.ollama_host}/api/tags")
+            except (httpx.TimeoutException, httpx.ConnectError):
+                raise HTTPException(
+                    status_code=503,
+                    detail="Ollama is not responding. Check your connection or tunnel."
+                )
+
+            try:
+                models_response = self.ollama_client.list()
                 models = models_response.get('models', [])
                 return {
                     "models": [
                         {
                             "name": m['model'],
                             "size": m.get('size', 0),
-                            "modified": m.get('modified_at', '')
+                            "modified": m.get('modified_at', ''),
+                            "active": m['model'] == self.model
                         }
                         for m in models
                     ],
-                    "count": len(models)
+                    "count": len(models),
+                    "current_model": self.model
                 }
             except Exception as e:
                 raise HTTPException(
@@ -292,12 +380,12 @@ class OllamaWrapper:
             """
             # Validate model exists
             try:
-                model_info = ollama.show(model_name)
+                model_info = self.ollama_client.show(model_name)
             except Exception as e:
                 # Model doesn't exist
                 try:
                     # Get available models for helpful error message
-                    models_response = ollama.list()
+                    models_response = self.ollama_client.list()
                     available_models = [m['model'] for m in models_response.get('models', [])]
                     raise HTTPException(
                         status_code=404,
@@ -603,11 +691,12 @@ class OllamaWrapper:
             # STEP 2: Call to Ollama with tools only if an MCP server was specified
             # This ensures tools don't persist from previous requests
             if len(request_tools) > 0:
-                response = ollama.chat(
+                response = self.ollama_client.chat(
                     model=request.model,
                     messages=messages,
                     tools=request_tools,
-                    options={'temperature': temperature}
+                    options={'temperature': temperature},
+                    keep_alive=request.keep_alive
                 )
 
                 # STEP 3: Handle tool calls if requested
@@ -642,10 +731,11 @@ class OllamaWrapper:
                             })
 
                     # Get final response from Ollama
-                    response_w_tools = ollama.chat(
+                    response_w_tools = self.ollama_client.chat(
                         model=request.model,
                         messages=tool_messages,
-                        options={'temperature': temperature}
+                        options={'temperature': temperature},
+                        keep_alive=request.keep_alive
                     )
 
                     # Response with tools
@@ -679,10 +769,11 @@ class OllamaWrapper:
                     )
             else:
                 # No FastMCP tools available, just return Ollama response
-                response = ollama.chat(
+                response = self.ollama_client.chat(
                     model=request.model,
                     messages=messages,
-                    options={'temperature': temperature}
+                    options={'temperature': temperature},
+                    keep_alive=request.keep_alive
                 )
                 if not request.stateless:
                     self.message_history.add("assistant", response['message']['content'])
@@ -925,7 +1016,7 @@ class OllamaWrapper:
             model_name: The name of the model to display info for
         """
         try:
-            model_info = ollama.show(model_name)
+            model_info = self.ollama_client.show(model_name)
             if 'details' in model_info:
                 details = model_info['details']
                 print(f"   Family: {details.get('family', 'N/A')}")
@@ -1041,7 +1132,7 @@ class OllamaWrapper:
 
             # Validate model exists in Ollama and display capabilities
             try:
-                model_info = ollama.show(self.model)
+                model_info = self.ollama_client.show(self.model)
                 print(f"\n🤖 Model: {self.model}")
                 if 'details' in model_info:
                     details = model_info['details']
@@ -1058,7 +1149,7 @@ class OllamaWrapper:
 
                 # Try to show available models and let user select
                 try:
-                    models = ollama.list()
+                    models = self.ollama_client.list()
                     if models['models']:
                         all_models = [m['model'] for m in models['models']]
 
@@ -1134,7 +1225,7 @@ class OllamaWrapper:
                 # Handle /model command for model selection
                 if user_input.lower().strip() == "/model":
                     try:
-                        models_response = ollama.list()
+                        models_response = self.ollama_client.list()
                         available_models = [m['model'] for m in models_response['models']]
 
                         if not available_models:
@@ -1235,10 +1326,11 @@ if __name__ == "__main__":
                         help='Operation mode'
                     )
 
-    parser.add_argument('model',
+    parser.add_argument('--ollama-model',
                         type=str,
                         nargs='?',
-                        help='An Ollama model previously downloaded.')
+                        default=None,
+                        help='Ollama model to use (overrides config file)')
 
     # Optional arguments
     parser.add_argument('-c', '--wrapper-config',
@@ -1285,12 +1377,37 @@ if __name__ == "__main__":
                         default=None,
                         help='Port number for the API server (default: from config or 8000).')
 
+    parser.add_argument('--ollama-host',
+                        type=str,
+                        nargs='?',
+                        default=None,
+                        help='Ollama instance host (default: from config or localhost).')
+
+    parser.add_argument('--ollama-port',
+                        type=int,
+                        nargs='?',
+                        default=None,
+                        help='Ollama instance port (default: from config or 11434).')
+
+    parser.add_argument('--ollama-label',
+                        type=str,
+                        nargs='?',
+                        default=None,
+                        help='Optional label to identify this Ollama instance (e.g., "remote-vps-via-tunnel"). Will prompt if not provided.')
+
+    parser.add_argument('--ollama-timeout',
+                        type=int,
+                        nargs='?',
+                        default=None,
+                        help='Request timeout in seconds (default: from config or 300). Prevents wrapper hang on tunnel drops.')
+
     # Parse the arguments
     args = parser.parse_args()
 
     # Load configurations from separate TOML files
     mcp_config = mcpserver_config.Config.from_toml(args.mcp_config)
-    wrap_config = wrapper_config.WrapperConfig.from_toml(args.wrapper_config)
+    wrap_config = WrapperConfig.from_toml(args.wrapper_config)
+    ollama_config = OllamaConfig.from_toml(args.wrapper_config)
 
     # Command-line arguments take precedence over config file
     # Use config values as defaults if command-line args are not explicitly provided
@@ -1300,19 +1417,54 @@ if __name__ == "__main__":
     history_file = args.history_file if args.history_file else wrap_config.history_file
     overwrite_history = args.overwrite_history if args.overwrite_history else wrap_config.overwrite_history
 
+    # Ollama configuration with CLI overrides
+    ollama_host = args.ollama_host if args.ollama_host is not None else ollama_config.host
+    ollama_port = args.ollama_port if args.ollama_port is not None else ollama_config.port
+    ollama_timeout = args.ollama_timeout if args.ollama_timeout is not None else ollama_config.timeout
+    model = args.ollama_model if args.ollama_model else (ollama_config.model.get('default') if ollama_config.model else None)
+
     # Ensure we have valid defaults if not set in config
     transport = transport or "HTTP"
     host = host or "0.0.0.0"
     port = port or 8000
+    ollama_host = ollama_host or "localhost"
+    ollama_port = ollama_port or 11434
+    ollama_timeout = ollama_timeout or 300
 
-    # Get model from args or config (with fallback)
-    model = args.model if args.model else (wrap_config.model.get('default') if wrap_config.model else None)
+    # Handle ollama_label with mandatory interactive prompting if not provided
+    ollama_label = args.ollama_label if args.ollama_label is not None else ollama_config.label
+    if not ollama_label:
+        # Build the Ollama URL to show to the user
+        ollama_url_display = f"{ollama_host}:{ollama_port}"
+        print(f"\n📍 Ollama instance: {ollama_url_display}")
+        print("   Please enter a label to identify this instance:")
+        print("   Examples: 'remote-vps-via-tunnel', 'local-gpu-server', 'production-ollama'")
 
-    # Get temperature from config (with default fallback)
-    config_temperature = wrap_config.model.get('temperature', 0.2) if wrap_config.model else 0.2
+        while True:
+            try:
+                ollama_label = input("   Label (required): ").strip()
+                if ollama_label:
+                    break
+                print("   ⚠️  Label is required. Please enter a value.")
+            except (EOFError, KeyboardInterrupt):
+                print("\n\n   ❌ Label is required to start the wrapper.")
+                import sys
+                sys.exit(1)
+
+    # Show label confirmation
+    print(f"   ✓ Using Ollama instance: '{ollama_label}' ({ollama_host}:{ollama_port})")
+    print(f"   ⏱ Request timeout: {ollama_timeout}s")
+
+    ollama_label = ollama_label or ""  # Ensure it's never None
+
+    # Get temperature from ollama config (with default fallback)
+    config_temperature = ollama_config.model.get('temperature', 0.2) if ollama_config.model else 0.2
 
     # Get max_history_messages from config (with default fallback)
     max_history_messages = wrap_config.max_history_messages
+
+    # Build ollama URL
+    ollama_url = f"http://{ollama_host}:{ollama_port}"
 
     wrapper = OllamaWrapper(
         model=model,
@@ -1320,7 +1472,10 @@ if __name__ == "__main__":
         history_file=history_file,
         overwrite_history=overwrite_history,
         config_temperature=config_temperature,
-        max_history_messages=max_history_messages
+        max_history_messages=max_history_messages,
+        ollama_host=ollama_url,
+        ollama_label=ollama_label,
+        ollama_timeout=ollama_timeout
         )
 
     # while True:

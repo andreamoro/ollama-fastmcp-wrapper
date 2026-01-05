@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Ollama request timeout configuration**:
+  - Added `timeout` parameter to `[ollama]` config section (default: 300 seconds)
+  - Added `--ollama-timeout` CLI argument to override config value
+  - Prevents wrapper from hanging indefinitely when SSH tunnels drop or remote Ollama becomes unresponsive
+  - Displays timeout value at startup: `⏱ Request timeout: 300s`
+- **Quick Ollama health check endpoint**:
+  - Added `GET /ollama/status` endpoint with 5-second timeout for fast availability check
+  - Returns immediately with status: `available`, `unavailable`, or `error`
+  - `/model/list` now performs quick health check before attempting full request
+  - API responds immediately instead of blocking when Ollama is unreachable
+
 ## [0.8.0] - 2025-12-05
 
 ### Added

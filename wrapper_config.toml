@@ -3,8 +3,14 @@
 [wrapper]
 transport = "HTTP"              # Transport method: "HTTP" or "STDIO" (default: HTTP)
 host = "0.0.0.0"               # Server host address (default: 0.0.0.0)
-port = 8000                     # Server port (default: 8000)
+port = 9000                     # Server port (default: 8000)
 history_file = ""               # Path to conversation history file (default: none)
 overwrite_history = false       # Overwrite history file on exit (default: false)
-model = { default = "gemma2:3b", temperature = 0.2 }  # Model settings (default model, temperature for consistent results)
 max_history_messages = 20       # Maximum messages before summarization kicks in (default: 20)
+
+[ollama]
+host = "localhost"              # Ollama instance host (default: localhost)
+port = 11434                    # Ollama instance port (default: 11434)
+timeout = 300                   # Request timeout in seconds (default: 300 = 5 minutes). Prevents wrapper hang on tunnel drops.
+label = ""                      # Optional label to identify this Ollama instance (e.g., "remote-vps-via-tunnel", "local-gpu-server")
+model = { default = "gemma2:3b", temperature = 0.2 }  # Model settings (default model, temperature for consistent results)

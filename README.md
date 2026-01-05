@@ -112,6 +112,7 @@ python ollama_wrapper.py
 - `GET /model` → Get current session model
 - `GET /model/list` → List all available Ollama models
 - `POST /model/switch/{model_name}` → Switch session model and reset context
+- `GET /ollama/status` → Quick health check for Ollama (5s timeout)
 
 **History:**
 - `GET /history` → Get current conversation history
@@ -195,9 +196,27 @@ Version 0.4.0 introduces a separated configuration structure:
    port = 8000                     # Server port (default: 8000)
    history_file = ""               # Path to conversation history file (default: none)
    overwrite_history = false       # Overwrite history file on exit (default: false)
-   model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
    max_history_messages = 20       # Maximum messages before summarization kicks in (default: 20)
+
+   [ollama]
+   host = "localhost"              # Ollama instance host (default: localhost)
+   port = 11434                    # Ollama instance port (default: 11434)
+   timeout = 300                   # Request timeout in seconds (default: 300)
+   label = ""                      # Optional label to identify this Ollama instance
+   model = { default = "llama3.2:3b", temperature = 0.2 }  # Model settings
    ```
+
+   **Wrapper Settings:**
+   - `max_history_messages`: Maximum number of messages before automatic summarization (default: 20)
+     - When the message count exceeds this limit, older messages are summarized to save context
+     - Helps maintain conversation continuity while keeping token usage manageable
+     - Adjust based on your model's context window and use case
+
+   **Ollama Settings:**
+   - `host`: Ollama instance host (use with port for remote/tunneled instances)
+   - `port`: Ollama instance port (default: 11434)
+   - `timeout`: Request timeout in seconds (default: 300). Prevents the wrapper from hanging indefinitely when SSH tunnels drop or remote Ollama becomes unresponsive.
+   - `label`: Human-readable label to identify this Ollama instance (prompted at startup if not set)
 
    **Model Settings:**
    - `default`: Default model name if not specified in requests
@@ -206,10 +225,6 @@ Version 0.4.0 introduces a separated configuration structure:
      - Medium (0.7-1.0): Balanced creativity
      - High (1.5-2.0): Very creative, less predictable
      - Temperature can be overridden per request via API
-   - `max_history_messages`: Maximum number of messages before automatic summarization (default: 20)
-     - When the message count exceeds this limit, older messages are summarized to save context
-     - Helps maintain conversation continuity while keeping token usage manageable
-     - Adjust based on your model's context window and use case
 
 2. **MCP Servers Configuration** (`mcp_servers/mcp_servers_config.toml`):
    ```toml
@@ -265,6 +280,12 @@ Command-line arguments take precedence over config file settings:
 - `--host <address>` - API server host address (default: from config or `0.0.0.0`)
 - `--port <number>` - API server port number (default: from config or `8000`)
 
+**Ollama Connection Arguments:**
+- `--ollama-host <address>` - Ollama instance host (default: from config or `localhost`)
+- `--ollama-port <number>` - Ollama instance port (default: from config or `11434`)
+- `--ollama-timeout <seconds>` - Request timeout in seconds (default: from config or `300`)
+- `--ollama-label <label>` - Label to identify the Ollama instance (prompted if not provided)
+
 #### Examples
 
 ```bash
@@ -285,6 +306,10 @@ python ollama_wrapper.py api llama3.2:3b --history-file conversation.json -o
 
 # Use alternate MCP servers config
 python ollama_wrapper.py api --mcp-config alternate_servers.toml
+
+# Connect to remote Ollama via SSH tunnel (with custom timeout)
+python ollama_wrapper.py api --ollama-host localhost --ollama-port 11435 \
+  --ollama-timeout 600 --ollama-label "remote-vps-via-tunnel"
 ```
 
 ---
