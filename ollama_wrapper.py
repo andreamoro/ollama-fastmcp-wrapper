@@ -46,6 +46,7 @@ class ChatRequest(BaseModel):
     temperature: Optional[float] = None  # Optional temperature override (0.0-2.0)
     stateless: bool = False  # If True, don't persist message to history (one-shot mode)
     keep_alive: Optional[str] = "30m"  # How long to keep model loaded (e.g., "30m", "1h", "-1" for forever)
+    timeout: Optional[int] = None  # Optional per-request timeout in seconds (overrides wrapper default)
 
 class ChatResponse(BaseModel):
     response: str
@@ -687,11 +688,17 @@ class OllamaWrapper:
         # Determine temperature: request parameter > config > default
         temperature = request.temperature if request.temperature is not None else self.config_temperature
 
+        # Use per-request timeout if specified, otherwise use default client
+        if request.timeout is not None:
+            client = ollama.Client(host=self.ollama_host, timeout=request.timeout)
+        else:
+            client = self.ollama_client
+
         try:
             # STEP 2: Call to Ollama with tools only if an MCP server was specified
             # This ensures tools don't persist from previous requests
             if len(request_tools) > 0:
-                response = self.ollama_client.chat(
+                response = client.chat(
                     model=request.model,
                     messages=messages,
                     tools=request_tools,
@@ -731,7 +738,7 @@ class OllamaWrapper:
                             })
 
                     # Get final response from Ollama
-                    response_w_tools = self.ollama_client.chat(
+                    response_w_tools = client.chat(
                         model=request.model,
                         messages=tool_messages,
                         options={'temperature': temperature},
@@ -769,7 +776,7 @@ class OllamaWrapper:
                     )
             else:
                 # No FastMCP tools available, just return Ollama response
-                response = self.ollama_client.chat(
+                response = client.chat(
                     model=request.model,
                     messages=messages,
                     options={'temperature': temperature},
@@ -1056,10 +1063,18 @@ class OllamaWrapper:
         for idx, model_name in enumerate(models_to_select, 1):
             print(f"   {idx}. {model_name}")
 
+        # Track if we're showing a filtered list (to offer 'l' option)
+        showing_filtered = models_to_select != all_models
+
         # Interactive selection
         while True:
             try:
-                choice = input(f"\nSelect model (1-{len(models_to_select)}, model name, or 'c' to cancel): ").strip()
+                # Only show 'l' option if we're displaying a filtered subset
+                if showing_filtered:
+                    prompt_text = f"\nSelect model (1-{len(models_to_select)}, name, 'l' list all, 'c' cancel): "
+                else:
+                    prompt_text = f"\nSelect model (1-{len(models_to_select)}, name, 'c' cancel): "
+                choice = input(prompt_text).strip()
 
                 if choice.lower() == 'c':
                     if is_startup:
@@ -1069,6 +1084,15 @@ class OllamaWrapper:
                     else:
                         print("Model selection cancelled")
                         return None
+
+                # List all models option (only when showing filtered list)
+                if choice.lower() == 'l' and showing_filtered:
+                    print(f"\n📋 All available models ({len(all_models)}):")
+                    models_to_select = all_models
+                    showing_filtered = False
+                    for idx, model_name in enumerate(models_to_select, 1):
+                        print(f"   {idx}. {model_name}")
+                    continue
 
                 # Check if user entered a model name directly
                 if choice in all_models:
@@ -1365,17 +1389,17 @@ if __name__ == "__main__":
                         default=None,
                         help='Transport method to connect to FastMCP servers (default: from config or HTTP).')
 
-    parser.add_argument('--host',
+    parser.add_argument('--wrapper-host',
                         type=str,
                         nargs='?',
                         default=None,
-                        help='Host address for the API server (default: from config or 0.0.0.0).')
+                        help='Host address for the wrapper API server (default: from config or 0.0.0.0).')
 
-    parser.add_argument('--port',
+    parser.add_argument('--wrapper-port',
                         type=int,
                         nargs='?',
                         default=None,
-                        help='Port number for the API server (default: from config or 8000).')
+                        help='Port number for the wrapper API server (default: from config or 8000).')
 
     parser.add_argument('--ollama-host',
                         type=str,
@@ -1412,8 +1436,8 @@ if __name__ == "__main__":
     # Command-line arguments take precedence over config file
     # Use config values as defaults if command-line args are not explicitly provided
     transport = args.transport if args.transport is not None else wrap_config.transport
-    host = args.host if args.host is not None else wrap_config.host
-    port = args.port if args.port is not None else wrap_config.port
+    host = args.wrapper_host if args.wrapper_host is not None else wrap_config.host
+    port = args.wrapper_port if args.wrapper_port is not None else wrap_config.port
     history_file = args.history_file if args.history_file else wrap_config.history_file
     overwrite_history = args.overwrite_history if args.overwrite_history else wrap_config.overwrite_history
 
@@ -1431,25 +1455,10 @@ if __name__ == "__main__":
     ollama_port = ollama_port or 11434
     ollama_timeout = ollama_timeout or 300
 
-    # Handle ollama_label with mandatory interactive prompting if not provided
+    # Handle ollama_label - default to "local-server" if not provided
     ollama_label = args.ollama_label if args.ollama_label is not None else ollama_config.label
     if not ollama_label:
-        # Build the Ollama URL to show to the user
-        ollama_url_display = f"{ollama_host}:{ollama_port}"
-        print(f"\n📍 Ollama instance: {ollama_url_display}")
-        print("   Please enter a label to identify this instance:")
-        print("   Examples: 'remote-vps-via-tunnel', 'local-gpu-server', 'production-ollama'")
-
-        while True:
-            try:
-                ollama_label = input("   Label (required): ").strip()
-                if ollama_label:
-                    break
-                print("   ⚠️  Label is required. Please enter a value.")
-            except (EOFError, KeyboardInterrupt):
-                print("\n\n   ❌ Label is required to start the wrapper.")
-                import sys
-                sys.exit(1)
+        ollama_label = "local-server"
 
     # Show label confirmation
     print(f"   ✓ Using Ollama instance: '{ollama_label}' ({ollama_host}:{ollama_port})")
