@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-01-17
+
+### Added
+- **Per-request timeout for Ollama calls**:
+  - ChatRequest now accepts optional `timeout` parameter (in seconds)
+  - Allows adaptive timeout based on prompt length for long-running requests
+  - Creates temporary Ollama client with custom timeout when specified
+  - Useful for batch processing with variable-length prompts
+- **Model selection 'list all' option**:
+  - When fuzzy search shows filtered results, press 'l' to list all available models
+  - Option only appears when viewing a subset of models
+- **Coreference text file analysis tools** (`demos/coreference/`):
+  - `coreference_test_from_textfile.py`: Analyze arbitrary text files for coreference resolution
+  - `compare_textfile_results.py`: Compare results grouped by source → model → prompt → date
+  - `compare_pre_post.py`: Compare pre/post fix results side by side
+  - `compare_specular.py`: Mirror comparison of result pairs
+  - Supports `--wrapper-host` and `--wrapper-port` CLI arguments
+  - Saves full prompt in JSON output for reproducibility
+  - Adaptive HTTP timeout (1.5x Ollama timeout) for clean error propagation
+
+### Changed
+- **CLI argument naming**:
+  - Renamed `--host` to `--wrapper-host` for clarity (distinguishes from `--ollama-host`)
+  - Renamed `--port` to `--wrapper-port` for clarity (distinguishes from `--ollama-port`)
+- **Ollama label default**:
+  - No longer prompts interactively for label if not provided
+  - Defaults to `local-server` when not specified in config or CLI
+- **Coreference utilities**:
+  - `send_to_model()` now passes timeout to wrapper for per-request Ollama timeout
+  - HTTP timeout set to 1.5x the Ollama timeout to allow clean error handling
+  - `compare_results.py` now excludes comparison reports from file listing
+
 ## [0.9.0] - 2026-01-06
 
 ### Added

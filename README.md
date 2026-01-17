@@ -43,12 +43,12 @@ Limited to this wrapper, MCP use is limited to the Tools part.
     pip install -r requirements.txt
     ```
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Python requirements include:<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - aiofiles (async file I/O)<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastapi<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastmcp<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - uvicorn<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - ollama<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Python requirements include:
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - aiofiles (async file I/O)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastapi
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - fastmcp
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - uvicorn
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; - ollama
 
 2. Make sure you have:
 - [Ollama Client](https://ollama.com/download) up and running: 
@@ -66,7 +66,7 @@ Limited to this wrapper, MCP use is limited to the Tools part.
 Run the wrapper:
 
 ```bash
-python ollama_wrapper.py
+uv run python ollama_wrapper.py
 ```
 
 You'll be asked which mode to start in:
@@ -94,7 +94,7 @@ See [`demos/README.md`](demos/README.md) for detailed usage instructions and exa
 Start the API:
 
 ```bash
-python ollama_wrapper.py
+uv run python ollama_wrapper.py
 # choose "api"
 ```
 
@@ -112,6 +112,7 @@ python ollama_wrapper.py
 - `GET /model` → Get current session model
 - `GET /model/list` → List all available Ollama models
 - `POST /model/switch/{model_name}` → Switch session model and reset context
+- `GET /ollama/config` → Get Ollama instance configuration (host, label, active model)
 - `GET /ollama/status` → Quick health check for Ollama (5s timeout)
 
 **History:**
@@ -131,7 +132,7 @@ python ollama_wrapper.py
 
 ```bash
 # Start API server
-python ollama_wrapper.py api
+uv run python ollama_wrapper.py api
 
 # Simple chat request (uses session model from config)
 curl -X POST http://localhost:8000/chat \
@@ -155,7 +156,7 @@ For detailed usage patterns including model switching, multi-model testing, temp
 ### 💬 CLI Mode
 
 ```bash
-python ollama_wrapper.py
+uv run python ollama_wrapper.py
 # choose "cli"
 ```
 
@@ -165,7 +166,7 @@ python ollama_wrapper.py
 
 ```bash
 # Start CLI
-python ollama_wrapper.py cli
+uv run python ollama_wrapper.py cli
 
 # Chat naturally
 You: Hello! How are you?
@@ -278,38 +279,38 @@ Command-line arguments take precedence over config file settings:
 - `--history-file <file>` - Path to conversation history file to load/save
 - `-o, --overwrite-history` - Allow overwriting existing history file
 - `-t, --transport <method>` - Transport method: `HTTP` or `STDIO` (default: from config or `HTTP`)
-- `--host <address>` - API server host address (default: from config or `0.0.0.0`)
-- `--port <number>` - API server port number (default: from config or `8000`)
+- `--wrapper-host <address>` - Wrapper API server host address (default: from config or `0.0.0.0`)
+- `--wrapper-port <number>` - Wrapper API server port number (default: from config or `8000`)
 
 **Ollama Connection Arguments:**
 - `--ollama-host <address>` - Ollama instance host (default: from config or `localhost`)
 - `--ollama-port <number>` - Ollama instance port (default: from config or `11434`)
 - `--ollama-timeout <seconds>` - Request timeout in seconds (default: from config or `300`)
-- `--ollama-label <label>` - Label to identify the Ollama instance (prompted if not provided)
+- `--ollama-label <label>` - Label to identify the Ollama instance (default: `local-server`)
 
 #### Examples
 
 ```bash
 # Use custom wrapper config file
-python ollama_wrapper.py api -c my_wrapper_config.toml
+uv run python ollama_wrapper.py api -c my_wrapper_config.toml
 
 # Override config file settings
-python ollama_wrapper.py api --host 127.0.0.1 --port 9000
+uv run python ollama_wrapper.py api --wrapper-host 127.0.0.1 --wrapper-port 9000
 
 # Specify transport method
-python ollama_wrapper.py api -t STDIO
+uv run python ollama_wrapper.py api -t STDIO
 
 # Load conversation history
-python ollama_wrapper.py cli --history-file my_conversation.json
+uv run python ollama_wrapper.py cli --history-file my_conversation.json
 
 # Start with specific model and auto-save history
-python ollama_wrapper.py api llama3.2:3b --history-file conversation.json -o
+uv run python ollama_wrapper.py api llama3.2:3b --history-file conversation.json -o
 
 # Use alternate MCP servers config
-python ollama_wrapper.py api --mcp-config alternate_servers.toml
+uv run python ollama_wrapper.py api --mcp-config alternate_servers.toml
 
 # Connect to remote Ollama via SSH tunnel (with custom timeout)
-python ollama_wrapper.py api --ollama-host localhost --ollama-port 11435 \
+uv run python ollama_wrapper.py api --ollama-host localhost --ollama-port 11435 \
   --ollama-timeout 600 --ollama-label "remote-vps-via-tunnel"
 ```
 
