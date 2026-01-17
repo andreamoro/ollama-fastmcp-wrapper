@@ -42,7 +42,11 @@ def get_available_results(results_dir):
     if not results_path.exists():
         return []
 
-    json_files = list(results_path.glob("*.json"))
+    # Get JSON files, excluding comparison reports
+    json_files = [
+        f for f in results_path.glob("*.json")
+        if f.is_file() and 'comparison' not in f.name.lower()
+    ]
     # Sort by modification time, newest first
     json_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     return json_files
@@ -53,14 +57,13 @@ def display_file_list(files):
     print("\n" + "=" * 120)
     print("AVAILABLE RESULT FILES")
     print("=" * 120)
-    print(f"{'#':<4} {'Date':<20} {'Model':<30} {'Prompt':<25} {'Accuracy':<10} {'Tests':<8}")
+    print(f"{'#':<4} {'Date':<20} {'Model':<30} {'Prompt':<25} {'Source File':<30}")
     print("-" * 120)
 
     for i, filepath in enumerate(files, 1):
         try:
             data = load_result_file(filepath)
             metadata = data.get('metadata', {})
-            metrics = data.get('metrics', {})
 
             # Parse timestamp
             timestamp = metadata.get('timestamp', '')
@@ -72,10 +75,20 @@ def display_file_list(files):
 
             model = metadata.get('model', 'Unknown')[:28]
             prompt = metadata.get('prompt', 'Unknown')[:23]
-            accuracy = metrics.get('overall', {}).get('accuracy', 0)
-            total_tests = metrics.get('overall', {}).get('total', 0)
 
-            print(f"{i:<4} {date_str:<20} {model:<30} {prompt:<25} {accuracy:>6.1f}%   {total_tests:<8}")
+            # Get source files - could be in metadata or from results
+            source_files = metadata.get('source_files', [])
+            if source_files:
+                source_str = ', '.join(source_files)[:28]
+            else:
+                # Fallback: check results for source_file field
+                results = data.get('results', [])
+                if results and results[0].get('source_file'):
+                    source_str = results[0].get('source_file', '')[:28]
+                else:
+                    source_str = 'N/A'
+
+            print(f"{i:<4} {date_str:<20} {model:<30} {prompt:<25} {source_str:<30}")
         except Exception as e:
             print(f"{i:<4} [Error reading file: {filepath.name}]")
 
@@ -84,7 +97,7 @@ def display_file_list(files):
 
 def get_user_selection(max_index):
     """Prompt user to select files for comparison."""
-    print("\nSelect 2-5 files to compare (comma-separated numbers, e.g., 1,3,5):")
+    print("\nSelect files to compare (comma-separated numbers, e.g., 1,3,5):")
     print("Or press Enter to compare the 3 most recent files")
 
     user_input = input("> ").strip()
@@ -97,9 +110,9 @@ def get_user_selection(max_index):
     try:
         selections = [int(x.strip()) for x in user_input.split(',')]
 
-        # Validate
-        if not (2 <= len(selections) <= 5):
-            print(f"Error: Please select between 2 and 5 files (you selected {len(selections)})")
+        # Validate - need at least 2 files
+        if len(selections) < 2:
+            print(f"Error: Please select at least 2 files (you selected {len(selections)})")
             return None
 
         if any(s < 1 or s > max_index for s in selections):

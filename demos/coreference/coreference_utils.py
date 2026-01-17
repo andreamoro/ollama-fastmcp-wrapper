@@ -321,24 +321,28 @@ def send_to_model(prompt, model, temperature=None, timeout=None, keep_alive="30m
                 - queue_wait_s: Estimated queue/network wait time
                 - tokens_per_second, eval_count, etc.
     """
+    # Calculate timeout: use provided value, or calculate adaptively
+    if timeout is None:
+        timeout = calculate_adaptive_timeout(len(prompt))
+
     payload = {
         "message": prompt,
         "model": model,
         "mcp_server": "",
         "stateless": True,
-        "keep_alive": keep_alive
+        "keep_alive": keep_alive,
+        "timeout": timeout  # Pass timeout to wrapper for Ollama call
     }
 
     if temperature is not None:
         payload["temperature"] = temperature
 
-    # Calculate timeout: use provided value, or calculate adaptively
-    if timeout is None:
-        timeout = calculate_adaptive_timeout(len(prompt))
-
     start_time = time.time()
     try:
-        response = requests.post(f"{HOST}/chat", json=payload, timeout=timeout)
+        # HTTP timeout should be larger than Ollama timeout to let Ollama timeout first
+        # This ensures clean error propagation from Ollama through the wrapper
+        http_timeout = int(timeout * 1.5)
+        response = requests.post(f"{HOST}/chat", json=payload, timeout=http_timeout)
         elapsed_time = time.time() - start_time
 
         if response.status_code != 200:

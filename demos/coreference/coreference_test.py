@@ -42,7 +42,6 @@ from coreference_utils import (
     get_ollama_config,
     export_results_to_json,
     export_results_to_markdown,
-    calculate_adaptive_timeout,
     set_host,
     HOST
 )
